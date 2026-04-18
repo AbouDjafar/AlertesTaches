@@ -1,0 +1,14 @@
+modules = ["nodejs-20"]
+[nix]
+channel = "stable-25_05"
+
+[agent]
+expertMode = true
+
+[[ports]]
+localPort = 8081
+externalPort = 8081
+
+[[ports]]
+localPort = 20521
+externalPort = 80
