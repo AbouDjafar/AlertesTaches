@@ -1,0 +1,58 @@
+[
+  {
+    "nom": "Préparer le rapport mensuel",
+    "echeance": "2026-04-15",
+    "personne": "Jean",
+    "duree": 3,
+    "details": "Rédiger et soumettre le rapport mensuel de performance",
+    "terminee": false
+  },
+  {
+    "nom": "Réunion client ABC",
+    "echeance": "2026-04-14",
+    "personne": "Marie",
+    "duree": 1,
+    "details": "Présentation du nouveau projet au client ABC",
+    "terminee": false
+  },
+  {
+    "nom": "Mise à jour du site web",
+    "echeance": "2026-04-20",
+    "personne": "Pierre",
+    "duree": 5,
+    "details": "Mettre à jour les pages produits et la FAQ",
+    "terminee": false
+  },
+  {
+    "nom": "Formation équipe",
+    "echeance": "2026-04-16",
+    "personne": "Sophie",
+    "duree": 2,
+    "details": "Session de formation sur les nouveaux outils",
+    "terminee": false
+  },
+  {
+    "nom": "Audit sécurité",
+    "echeance": "2026-04-25",
+    "personne": "Ahmed",
+    "duree": 4,
+    "details": "Effectuer l'audit de sécurité trimestriel",
+    "terminee": false
+  },
+  {
+    "nom": "Budget Q2",
+    "echeance": "2026-04-13",
+    "personne": "Jean",
+    "duree": 2,
+    "details": "Finaliser le budget du deuxième trimestre",
+    "terminee": false
+  },
+  {
+    "nom": "Revue de code",
+    "echeance": "2026-04-18",
+    "personne": "Pierre",
+    "duree": 1,
+    "details": "Revue de code du module de paiement",
+    "terminee": true
+  }
+]
