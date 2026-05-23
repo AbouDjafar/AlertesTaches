@@ -1,6 +1,6 @@
 {
   "productName": "Alertes Taches",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "identifier": "fr.djafar.alertes-taches",
   "build": {
     "frontendDist": "../dist",
@@ -24,13 +24,6 @@
     ],
     "security": {
       "csp": null
-    },
-    "trayIcon": {
-      "iconPath": "icons/icon.png",
-      "iconAsTemplate": true,
-      "menuOnLeftClick": false,
-      "title": "Alertes Taches",
-      "tooltip": "Alertes Taches - Gestionnaire de taches"
     }
   },
   "bundle": {
@@ -49,7 +42,7 @@
     ],
     "windows": {
       "webviewInstallMode": {
-        "type": "embedBootstrapper"
+        "type": "offlineInstaller"
       },
       "wix": {
         "language": "fr-FR"

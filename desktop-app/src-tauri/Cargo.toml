@@ -1,6 +1,6 @@
 [package]
 name = "alertes-taches"
-version = "1.0.2"
+version = "1.0.3"
 description = "Alertes Taches - Gestionnaire de planificateur de taches"
 authors = ["AbouDjafar"]
 edition = "2021"
@@ -14,7 +14,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["tray-icon"] }
+tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-shell = "2"
