@@ -152,7 +152,7 @@ fn get_app_data_path(app: &tauri::AppHandle) -> PathBuf {
 // ─── Commands ─────────────────────────────────────────────────────────────────
 
 #[tauri::command]
-pub fn load_tasks(app: tauri::AppHandle) -> Result<AppData, String> {
+fn load_tasks(app: tauri::AppHandle) -> Result<AppData, String> {
     let path = get_app_data_path(&app);
     if !path.exists() {
         return Ok(AppData::default());
@@ -162,7 +162,7 @@ pub fn load_tasks(app: tauri::AppHandle) -> Result<AppData, String> {
 }
 
 #[tauri::command]
-pub fn save_tasks(app: tauri::AppHandle, tasks: Vec<Task>) -> Result<(), String> {
+fn save_tasks(app: tauri::AppHandle, tasks: Vec<Task>) -> Result<(), String> {
     let path = get_app_data_path(&app);
     let data = AppData {
         tasks,
@@ -174,7 +174,7 @@ pub fn save_tasks(app: tauri::AppHandle, tasks: Vec<Task>) -> Result<(), String>
 }
 
 #[tauri::command]
-pub fn add_task(app: tauri::AppHandle, mut task: Task) -> Result<Task, String> {
+fn add_task(app: tauri::AppHandle, mut task: Task) -> Result<Task, String> {
     let mut data = load_tasks(app.clone())?;
     task.id = Uuid::new_v4().to_string();
     // Auto-assign numero
@@ -199,7 +199,7 @@ pub fn add_task(app: tauri::AppHandle, mut task: Task) -> Result<Task, String> {
 }
 
 #[tauri::command]
-pub fn update_task(app: tauri::AppHandle, task: Task) -> Result<Task, String> {
+fn update_task(app: tauri::AppHandle, task: Task) -> Result<Task, String> {
     let mut data = load_tasks(app.clone())?;
     if let Some(existing) = data.tasks.iter_mut().find(|t| t.id == task.id) {
         *existing = task.clone();
@@ -218,14 +218,14 @@ pub fn update_task(app: tauri::AppHandle, task: Task) -> Result<Task, String> {
 }
 
 #[tauri::command]
-pub fn delete_task(app: tauri::AppHandle, id: String) -> Result<(), String> {
+fn delete_task(app: tauri::AppHandle, id: String) -> Result<(), String> {
     let mut data = load_tasks(app.clone())?;
     data.tasks.retain(|t| t.id != id);
     save_tasks(app, data.tasks)
 }
 
 #[tauri::command]
-pub fn get_active_alerts(app: tauri::AppHandle) -> Result<Vec<Alert>, String> {
+fn get_active_alerts(app: tauri::AppHandle) -> Result<Vec<Alert>, String> {
     let data = load_tasks(app)?;
     let today = Local::now().date_naive();
     let mut alerts: Vec<Alert> = Vec::new();
@@ -280,7 +280,7 @@ pub fn get_active_alerts(app: tauri::AppHandle) -> Result<Vec<Alert>, String> {
 }
 
 #[tauri::command]
-pub fn import_json(content: String) -> Result<Vec<Task>, String> {
+fn import_json(content: String) -> Result<Vec<Task>, String> {
     // Try to parse as our internal format first
     if let Ok(data) = serde_json::from_str::<AppData>(&content) {
         return Ok(data.tasks);
@@ -325,7 +325,7 @@ pub fn import_json(content: String) -> Result<Vec<Task>, String> {
 }
 
 #[tauri::command]
-pub fn export_json(tasks: Vec<Task>) -> Result<String, String> {
+fn export_json(tasks: Vec<Task>) -> Result<String, String> {
     let rows: Vec<PlanificateurRow> = tasks
         .iter()
         .map(|t| PlanificateurRow {
@@ -360,7 +360,7 @@ pub fn export_json(tasks: Vec<Task>) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub fn get_stats(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+fn get_stats(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
     let data = load_tasks(app.clone())?;
     let today = Local::now().date_naive();
     let total = data.tasks.len();
