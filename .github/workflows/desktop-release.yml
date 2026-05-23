@@ -1,0 +1,59 @@
+name: desktop-release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    defaults:
+      run:
+        working-directory: desktop-app
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop-app/package-lock.json
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: ./desktop-app/src-tauri -> target
+
+      - name: Install desktop dependencies
+        run: npm ci
+
+      - name: Sync desktop version
+        run: npm run sync:version
+
+      - name: Build and publish desktop release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: desktop-app
+          tauriScript: npm run tauri
+          tagName: ${{ github.ref_name }}
+          releaseName: "Alertes Taches Desktop v__VERSION__"
+          releaseBody: "Executable Windows genere automatiquement depuis GitHub Actions."
+          releaseDraft: false
+          prerelease: false
+          includeDebug: false
+          uploadPlainBinary: false
+          releaseAssetNamePattern: "AlertesTaches-Desktop-[version]-[platform]-[arch][setup][ext]"
+          workflowArtifactNamePattern: "alertes-taches-desktop-[platform]-[arch]-[bundle]"
