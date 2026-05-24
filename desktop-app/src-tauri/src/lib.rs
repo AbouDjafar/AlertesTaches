@@ -1,11 +1,15 @@
-use serde::{Deserialize, Serialize};
-use std::fs;
-use std::path::PathBuf;
-use tauri::Manager;
 use chrono::{Local, NaiveDate};
+use serde::{Deserialize, Serialize};
+use std::fs::{self, OpenOptions};
+use std::io::Write;
+use std::path::PathBuf;
+use std::sync::Mutex;
+use tauri::Manager;
 use uuid::Uuid;
 
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
+const LOG_FILE_NAME: &str = "alertes-taches-log.txt";
+static LOG_FILE_PATH: Mutex<Option<PathBuf>> = Mutex::new(None);
 
 // ─── Data Types ──────────────────────────────────────────────────────────────
 
@@ -147,6 +151,114 @@ fn get_app_data_path(app: &tauri::AppHandle) -> PathBuf {
     let data_dir = app.path().app_data_dir().expect("Cannot get app data dir");
     fs::create_dir_all(&data_dir).ok();
     data_dir.join("alertes_taches.json")
+}
+
+fn default_log_directory() -> PathBuf {
+    std::env::current_exe()
+        .ok()
+        .and_then(|path| path.parent().map(PathBuf::from))
+        .or_else(|| std::env::current_dir().ok())
+        .unwrap_or_else(std::env::temp_dir)
+}
+
+fn fallback_log_directory() -> PathBuf {
+    std::env::var_os("LOCALAPPDATA")
+        .map(PathBuf::from)
+        .unwrap_or_else(std::env::temp_dir)
+        .join("AlertesTaches")
+}
+
+fn log_candidates() -> Vec<PathBuf> {
+    let primary = default_log_directory().join(LOG_FILE_NAME);
+    let fallback = fallback_log_directory().join(LOG_FILE_NAME);
+
+    if primary == fallback {
+        vec![primary]
+    } else {
+        vec![primary, fallback]
+    }
+}
+
+fn ensure_log_file(path: &PathBuf) -> std::io::Result<()> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+
+    OpenOptions::new().create(true).append(true).open(path)?;
+    Ok(())
+}
+
+fn resolve_log_file_path() -> PathBuf {
+    if let Ok(guard) = LOG_FILE_PATH.lock() {
+        if let Some(path) = guard.clone() {
+            return path;
+        }
+    }
+
+    let mut chosen_path = None;
+    for candidate in log_candidates() {
+        if ensure_log_file(&candidate).is_ok() {
+            chosen_path = Some(candidate);
+            break;
+        }
+    }
+
+    let chosen_path = chosen_path.unwrap_or_else(|| std::env::temp_dir().join(LOG_FILE_NAME));
+
+    if let Ok(mut guard) = LOG_FILE_PATH.lock() {
+        *guard = Some(chosen_path.clone());
+    }
+
+    chosen_path
+}
+
+fn format_log_line(level: &str, source: &str, message: &str) -> String {
+    let sanitized_message = message.replace('\r', " ").replace('\n', " | ");
+    format!(
+        "[{}] [{}] [{}] {}",
+        Local::now().format("%Y-%m-%d %H:%M:%S"),
+        level,
+        source,
+        sanitized_message
+    )
+}
+
+fn append_app_log(level: &str, source: &str, message: &str) -> std::io::Result<PathBuf> {
+    let path = resolve_log_file_path();
+    let mut file = OpenOptions::new().create(true).append(true).open(&path)?;
+    writeln!(file, "{}", format_log_line(level, source, message))?;
+    Ok(path)
+}
+
+fn register_panic_logger() {
+    let panic_log_path = resolve_log_file_path();
+    std::panic::set_hook(Box::new(move |panic_info| {
+        let location = panic_info
+            .location()
+            .map(|location| format!("{}:{}", location.file(), location.line()))
+            .unwrap_or_else(|| "unknown".to_string());
+
+        let payload = if let Some(message) = panic_info.payload().downcast_ref::<&str>() {
+            (*message).to_string()
+        } else if let Some(message) = panic_info.payload().downcast_ref::<String>() {
+            message.clone()
+        } else {
+            "panic without string payload".to_string()
+        };
+
+        let _ = ensure_log_file(&panic_log_path);
+        if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(&panic_log_path) {
+            let _ = writeln!(
+                file,
+                "{}",
+                format_log_line(
+                    "ERROR",
+                    "panic",
+                    &format!("Application panic at {location}: {payload}")
+                )
+            );
+        }
+    }));
 }
 
 // ─── Commands ─────────────────────────────────────────────────────────────────
@@ -407,15 +519,70 @@ fn get_stats(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
     }))
 }
 
+#[tauri::command]
+fn write_app_log_entry(level: String, source: String, message: String) -> Result<(), String> {
+    let normalized_level = if level.trim().is_empty() {
+        "INFO"
+    } else {
+        level.trim()
+    };
+    let normalized_source = if source.trim().is_empty() {
+        "frontend"
+    } else {
+        source.trim()
+    };
+
+    append_app_log(normalized_level, normalized_source, &message)
+        .map(|_| ())
+        .map_err(|error| format!("Impossible d'ecrire dans le fichier de log : {}", error))
+}
+
 // ─── App Setup ────────────────────────────────────────────────────────────────
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    register_panic_logger();
+
+    let primary_log_target = default_log_directory().join(LOG_FILE_NAME);
+    let _ = append_app_log(
+        "INFO",
+        "backend",
+        &format!("Desktop app startup requested for version {APP_VERSION}"),
+    );
+    let _ = append_app_log(
+        "INFO",
+        "backend",
+        &format!("Primary log target: {}", primary_log_target.display()),
+    );
+
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_notification::init())
+        .setup(|app| {
+            let _ = append_app_log(
+                "INFO",
+                "backend",
+                &format!("Tauri setup reached for version {APP_VERSION}"),
+            );
+            let _ = append_app_log(
+                "INFO",
+                "backend",
+                &format!("Log file in use: {}", resolve_log_file_path().display()),
+            );
+            let _ = append_app_log(
+                "INFO",
+                "backend",
+                &format!("Data file path: {}", get_app_data_path(&app.handle().clone()).display()),
+            );
+            let _ = append_app_log(
+                "INFO",
+                "backend",
+                &format!("Main window available: {}", app.get_webview_window("main").is_some()),
+            );
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             load_tasks,
             save_tasks,
@@ -426,7 +593,17 @@ pub fn run() {
             import_json,
             export_json,
             get_stats,
-        ])
-        .run(tauri::generate_context!())
-        .expect("Erreur au démarrage de Tauri");
+            write_app_log_entry,
+        ]);
+    let _ = append_app_log("INFO", "backend", "Starting Tauri event loop");
+    if let Err(error) = builder.run(tauri::generate_context!()) {
+        let _ = append_app_log(
+            "ERROR",
+            "backend",
+            &format!("Tauri startup failed: {}", error),
+        );
+        panic!("Erreur au demarrage de Tauri: {}", error);
+    }
+
+    let _ = append_app_log("INFO", "backend", "Tauri event loop exited cleanly");
 }
