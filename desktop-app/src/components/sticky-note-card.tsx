@@ -1,4 +1,5 @@
 import { BellRing, X } from "lucide-react";
+import type { MouseEventHandler } from "react";
 import type { StickyNotePayload } from "@/lib/store";
 
 const NOTE_THEME: Record<string, { surface: string; border: string; accent: string; title: string; meta: string; badge: string }> = {
@@ -13,10 +14,11 @@ type StickyNoteCardProps = {
   note: StickyNotePayload;
   onClose?: () => void;
   onCloseAll?: () => void;
+  onMouseDown?: MouseEventHandler<HTMLDivElement>;
   className?: string;
 };
 
-export function StickyNoteCard({ note, onClose, onCloseAll, className = "" }: StickyNoteCardProps) {
+export function StickyNoteCard({ note, onClose, onCloseAll, onMouseDown, className = "" }: StickyNoteCardProps) {
   const theme = NOTE_THEME[note.color ?? "blue"] ?? NOTE_THEME.blue;
 
   return (
@@ -27,6 +29,7 @@ export function StickyNoteCard({ note, onClose, onCloseAll, className = "" }: St
         borderColor: theme.border,
         boxShadow: "0 20px 45px rgba(20,31,46,0.20)",
       }}
+      onMouseDown={onMouseDown}
       data-tauri-drag-region="deep"
     >
       <div className="flex items-start gap-3 p-4" data-tauri-drag-region="deep">

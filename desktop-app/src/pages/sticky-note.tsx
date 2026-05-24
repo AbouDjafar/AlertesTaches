@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   closeAllStickyWindows,
   closeCurrentStickyWindow,
@@ -91,6 +92,19 @@ export default function StickyNoteWindow() {
     };
   }, [note, windowLabel]);
 
+  const handleDragStart = async (event: MouseEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement;
+    if (target.closest("button")) {
+      return;
+    }
+
+    try {
+      await getCurrentWindow().startDragging();
+    } catch (error) {
+      console.error("Unable to start sticky note drag", error);
+    }
+  };
+
   if (!note) {
     return <div className="h-full w-full overflow-hidden bg-transparent" />;
   }
@@ -100,6 +114,7 @@ export default function StickyNoteWindow() {
       <div ref={cardRef}>
         <StickyNoteCard
           note={note}
+          onMouseDown={(event) => { void handleDragStart(event); }}
           onClose={() => { void closeCurrentStickyWindow(windowLabel); }}
           onCloseAll={note.showCloseAll ? () => { void closeAllStickyWindows(); } : undefined}
         />

@@ -1206,7 +1206,6 @@ fn create_sticky_windows(app: &AppHandle, state: &RuntimeState, alerts: &[Alert]
             .decorations(false)
             .resizable(false)
             .visible(true)
-            .always_on_top(true)
             .skip_taskbar(true)
             .transparent(true)
             .shadow(false)
