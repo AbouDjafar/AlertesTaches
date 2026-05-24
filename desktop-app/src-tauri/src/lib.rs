@@ -1061,11 +1061,12 @@ fn screen_bounds(app: &AppHandle) -> (f64, f64, f64, f64) {
         .map(|monitor| {
             let position = monitor.position();
             let size = monitor.size();
+            let scale = monitor.scale_factor().max(1.0);
             (
-                position.x as f64,
-                position.y as f64,
-                size.width as f64,
-                size.height as f64,
+                position.x as f64 / scale,
+                position.y as f64 / scale,
+                size.width as f64 / scale,
+                size.height as f64 / scale,
             )
         })
         .unwrap_or((0.0, 0.0, 1440.0, 900.0))
