@@ -1,4 +1,6 @@
 import { Switch, Route, Router as WouterRouter } from "wouter";
+import { useEffect, useState } from "react";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { Toaster } from "./components/ui/toaster";
 import { TooltipProvider } from "./components/ui/tooltip";
 import NotFound from "./pages/not-found";
@@ -7,6 +9,9 @@ import Dashboard from "./pages/dashboard";
 import Tasks from "./pages/tasks";
 import Alerts from "./pages/alerts";
 import ImportExport from "./pages/import-export";
+import Settings from "./pages/settings";
+import StickyNoteWindow from "./pages/sticky-note";
+import { TasksProvider } from "./hooks/use-tasks";
 
 function Router() {
   return (
@@ -18,6 +23,7 @@ function Router() {
           <Route path="/tasks" component={Tasks} />
           <Route path="/alerts" component={Alerts} />
           <Route path="/import-export" component={ImportExport} />
+          <Route path="/settings" component={Settings} />
           <Route component={NotFound} />
         </Switch>
       </main>
@@ -26,11 +32,23 @@ function Router() {
 }
 
 function App() {
+  const [windowLabel, setWindowLabel] = useState<string | null>(null);
+
+  useEffect(() => {
+    setWindowLabel(getCurrentWebviewWindow().label);
+  }, []);
+
   return (
     <TooltipProvider>
-      <WouterRouter>
-        <Router />
-      </WouterRouter>
+      {windowLabel === null ? null : windowLabel.startsWith("sticky-note-") ? (
+        <StickyNoteWindow />
+      ) : (
+        <TasksProvider>
+          <WouterRouter>
+            <Router />
+          </WouterRouter>
+        </TasksProvider>
+      )}
       <Toaster />
     </TooltipProvider>
   );

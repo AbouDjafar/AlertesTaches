@@ -133,11 +133,12 @@ export default function Dashboard() {
               ) : (
                 <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={ganttData} layout="vertical" margin={{ top: 0, right: 16, bottom: 0, left: 0 }}>
-                    <XAxis type="number" tick={{ fontSize: 10, fill: "#8B95A3" }} tickFormatter={(v) => v === 0 ? "Auj." : `J${v > 0 ? "+" : ""}${v}`} />
-                    <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: "#8B95A3" }} width={110} />
+                    <XAxis type="number" tick={{ fontSize: 10, fill: "#F8FAFC" }} tickFormatter={(v) => v === 0 ? "Auj." : `J${v > 0 ? "+" : ""}${v}`} />
+                    <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: "#F8FAFC" }} width={110} />
                     <Tooltip
                       contentStyle={{ background: "#161B22", border: "1px solid #232A33", borderRadius: 8 }}
                       labelStyle={{ color: "#E6EDF3", fontSize: 12 }}
+                      itemStyle={{ color: "#F8FAFC" }}
                       formatter={(val: number, _name: string, props) => {
                         const entry = props.payload as { start: number; duration: number; done: boolean };
                         return [`J${entry.start >= 0 ? "+" : ""}${entry.start} → J${entry.start + entry.duration > 0 ? "+" : ""}${entry.start + entry.duration}`, "Période"];

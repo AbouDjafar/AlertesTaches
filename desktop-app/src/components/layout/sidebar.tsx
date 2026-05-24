@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, CheckSquare, BellRing, FileJson } from "lucide-react";
+import { BellRing, CheckSquare, FileJson, LayoutDashboard, Settings } from "lucide-react";
 import { motion } from "framer-motion";
 
 export function Sidebar() {
@@ -10,6 +10,7 @@ export function Sidebar() {
     { href: "/tasks", label: "Tâches", icon: CheckSquare },
     { href: "/alerts", label: "Alertes", icon: BellRing },
     { href: "/import-export", label: "Import / Export", icon: FileJson },
+    { href: "/settings", label: "Réglages", icon: Settings },
   ];
 
   return (
@@ -26,13 +27,13 @@ export function Sidebar() {
           const Icon = link.icon;
           return (
             <Link key={link.href} href={link.href} className="block relative">
-              <div className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}>
+              <div className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${isActive ? "text-primary" : "text-muted-foreground hover:text-foreground hover:bg-white/5"}`}>
                 <Icon className="w-4 h-4" />
                 {link.label}
               </div>
               {isActive && (
-                <motion.div 
-                  layoutId="activeTab" 
+                <motion.div
+                  layoutId="activeTab"
                   className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r-full"
                   initial={false}
                   transition={{ type: "spring", stiffness: 300, damping: 30 }}
@@ -43,7 +44,7 @@ export function Sidebar() {
         })}
       </nav>
       <div className="p-6 text-xs text-muted-foreground">
-        © 2026 Projet Manager
+        © 2026 Fait par Abou Djafar
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 {
   "name": "alertes-taches-desktop",
   "private": true,
-  "version": "1.0.6",
+  "version": "1.1.0",
   "type": "module",
   "scripts": {
     "sync:version": "node ./scripts/sync-version.mjs",
@@ -54,6 +54,7 @@
     "cmdk": "^1.1.1",
     "date-fns": "^3.6.0",
     "embla-carousel-react": "^8.6.0",
+    "exceljs": "^4.4.0",
     "framer-motion": "^12.0.0",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.511.0",

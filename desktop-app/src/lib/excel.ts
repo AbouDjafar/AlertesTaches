@@ -1,0 +1,303 @@
+import ExcelJS from "exceljs";
+import { Task } from "@/lib/store";
+
+const PLAN_COLUMNS = [
+  "N°",
+  "Activité",
+  "Tâche",
+  "Description",
+  "Source",
+  "Nature",
+  "Extrant attendu",
+  "IOV (Indicateur Objectivement Vérifiable)",
+  "Responsable",
+  "Date de début",
+  "Date de fin",
+  "Durée (jours)",
+  "Priorité",
+  "État d'avancement",
+  "Extrants obtenus à date",
+  "Livrables fournis",
+  "Observations",
+  "Etat",
+] as const;
+
+const PLAN_WIDTHS = [6, 35, 50, 40, 25, 20, 45, 40, 15, 14, 14, 12, 12, 18, 25, 20, 40, 10];
+const HEADER_FILL = "1F4E79";
+const HEADER_TEXT = "FFFFFF";
+const STATUS_VALUES = ["Non démarré", "Non démarrée", "En cours", "Terminée", "Terminé"];
+
+const HEADER_ALIASES: Record<string, string> = {
+  "N°": "N°",
+  "NÂ°": "N°",
+  N: "N°",
+  "Activité": "Activité",
+  "ActivitÃ©": "Activité",
+  Activite: "Activité",
+  "Tâche": "Tâche",
+  "TÃ¢che": "Tâche",
+  Tache: "Tâche",
+  Description: "Description",
+  Source: "Source",
+  Nature: "Nature",
+  "Extrant attendu": "Extrant attendu",
+  "IOV (Indicateur Objectivement Vérifiable)": "IOV (Indicateur Objectivement Vérifiable)",
+  "IOV (Indicateur Objectivement VÃ©rifiable)": "IOV (Indicateur Objectivement Vérifiable)",
+  "IOV (Indicateur Objectivement Verifiable)": "IOV (Indicateur Objectivement Vérifiable)",
+  Responsable: "Responsable",
+  "Date de début": "Date de début",
+  "Date de dÃ©but": "Date de début",
+  "Date de debut": "Date de début",
+  "Date de fin": "Date de fin",
+  "Durée (jours)": "Durée (jours)",
+  "DurÃ©e (jours)": "Durée (jours)",
+  "Duree (jours)": "Durée (jours)",
+  "Priorité": "Priorité",
+  "PrioritÃ©": "Priorité",
+  Priorite: "Priorité",
+  "État d'avancement": "État d'avancement",
+  "Ã‰tat d'avancement": "État d'avancement",
+  "Etat d'avancement": "État d'avancement",
+  "Extrants obtenus à date": "Extrants obtenus à date",
+  "Extrants obtenus Ã  date": "Extrants obtenus à date",
+  "Extrants obtenus a date": "Extrants obtenus à date",
+  "Livrables fournis": "Livrables fournis",
+  Observations: "Observations",
+  Etat: "Etat",
+};
+
+function normalizeHeader(value: string | null | undefined, index: number) {
+  if (!value) {
+    return `col_${index}`;
+  }
+  return HEADER_ALIASES[value.trim()] ?? value.trim();
+}
+
+function excelSerialToIso(value: number) {
+  const date = new Date(Date.UTC(1899, 11, 30));
+  date.setUTCDate(date.getUTCDate() + Math.round(value));
+  return date.toISOString().slice(0, 10);
+}
+
+function toDateOnly(value: Date) {
+  return value.toISOString().slice(0, 10);
+}
+
+function readCellValue(value: ExcelJS.CellValue): string | number | null {
+  if (value == null) {
+    return null;
+  }
+  if (typeof value === "string" || typeof value === "number") {
+    return value;
+  }
+  if (value instanceof Date) {
+    return toDateOnly(value);
+  }
+  if (typeof value === "object" && "result" in value) {
+    return readCellValue(value.result as ExcelJS.CellValue);
+  }
+  if (typeof value === "object" && "text" in value) {
+    return String(value.text ?? "");
+  }
+  if (typeof value === "object" && "richText" in value) {
+    return value.richText.map((part) => part.text).join("");
+  }
+  return String(value);
+}
+
+function parseExcelDate(raw: string | number | null) {
+  if (raw == null || raw === "") {
+    return "";
+  }
+  if (typeof raw === "number") {
+    return excelSerialToIso(raw);
+  }
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return "";
+  }
+  const isoMatch = /^\d{4}-\d{2}-\d{2}/.exec(trimmed);
+  if (isoMatch) {
+    return isoMatch[0];
+  }
+  const frMatch = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(trimmed);
+  if (frMatch) {
+    return `${frMatch[3]}-${frMatch[2]}-${frMatch[1]}`;
+  }
+  return trimmed;
+}
+
+function asNumber(raw: string | number | null) {
+  if (raw == null || raw === "") {
+    return 0;
+  }
+  if (typeof raw === "number") {
+    return Number.isFinite(raw) ? raw : 0;
+  }
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+export async function importTasksFromExcel(file: File) {
+  const workbook = new ExcelJS.Workbook();
+  const buffer = await file.arrayBuffer();
+  await workbook.xlsx.load(buffer);
+
+  const worksheet = workbook.getWorksheet("Planificateur") ?? workbook.worksheets[0];
+  if (!worksheet) {
+    throw new Error("La feuille 'Planificateur' est introuvable.");
+  }
+
+  const headerRow = worksheet.getRow(1);
+  const headerValues = (Array.isArray(headerRow.values) ? headerRow.values.slice(1) : []) as ExcelJS.CellValue[];
+  const headers = headerValues.map((value: ExcelJS.CellValue, index: number) => {
+    const normalized = readCellValue(value);
+    return normalizeHeader(normalized == null ? undefined : String(normalized), index + 1);
+  });
+
+  const tasks: Task[] = [];
+  for (let rowIndex = 2; rowIndex <= worksheet.rowCount; rowIndex += 1) {
+    const row = worksheet.getRow(rowIndex);
+    const values = headers.map((_: string, headerIndex: number) => readCellValue(row.getCell(headerIndex + 1).value));
+    const meaningfulCount = values.filter((value: string | number | null) => value != null && `${value}`.trim() !== "").length;
+    if (meaningfulCount <= 1) {
+      continue;
+    }
+
+    const record = Object.fromEntries(headers.map((header: string, index: number) => [header, values[index]]));
+    const dateDebut = parseExcelDate(record["Date de début"] as string | number | null);
+    const dateFin = parseExcelDate(record["Date de fin"] as string | number | null);
+
+    tasks.push({
+      id: crypto.randomUUID(),
+      numero: asNumber(record["N°"] as string | number | null),
+      activite: String(record["Activité"] ?? ""),
+      tache: String(record["Tâche"] ?? ""),
+      description: String(record["Description"] ?? ""),
+      source: String(record["Source"] ?? ""),
+      nature: String(record["Nature"] ?? ""),
+      extrantAttendu: String(record["Extrant attendu"] ?? ""),
+      iov: String(record["IOV (Indicateur Objectivement Vérifiable)"] ?? ""),
+      responsable: String(record["Responsable"] ?? ""),
+      dateDebut,
+      dateFin,
+      duree: asNumber(record["Durée (jours)"] as string | number | null),
+      priorite: String(record["Priorité"] ?? "Moyen"),
+      etatAvancement: String(record["État d'avancement"] ?? "Non démarré"),
+      extrantsObtenus: String(record["Extrants obtenus à date"] ?? ""),
+      livrablesFournis: String(record["Livrables fournis"] ?? ""),
+      observations: String(record["Observations"] ?? ""),
+      etat: record["Etat"] == null ? null : String(record["Etat"]),
+    });
+  }
+
+  return tasks;
+}
+
+function parseIsoDate(value: string) {
+  if (!value) {
+    return null;
+  }
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function buildWorkbook(tasks: Task[]) {
+  const workbook = new ExcelJS.Workbook();
+  const planSheet = workbook.addWorksheet("Planificateur");
+
+  planSheet.addRow(PLAN_COLUMNS);
+  const headerRow = planSheet.getRow(1);
+  headerRow.height = 35;
+  headerRow.eachCell((cell) => {
+    cell.font = { name: "Arial", size: 10, bold: true, color: { argb: HEADER_TEXT } };
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: HEADER_FILL } };
+    cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+  });
+  planSheet.views = [{ state: "frozen", ySplit: 1 }];
+  PLAN_WIDTHS.forEach((width, index) => {
+    planSheet.getColumn(index + 1).width = width;
+  });
+
+  tasks.forEach((task) => {
+    const rowIndex = planSheet.rowCount + 1;
+    const row = planSheet.addRow([
+      task.numero,
+      task.activite,
+      task.tache,
+      task.description,
+      task.source,
+      task.nature,
+      task.extrantAttendu,
+      task.iov,
+      task.responsable,
+      parseIsoDate(task.dateDebut),
+      parseIsoDate(task.dateFin),
+      null,
+      task.priorite,
+      task.etatAvancement,
+      task.extrantsObtenus,
+      task.livrablesFournis,
+      task.observations,
+      task.etat,
+    ]);
+
+    row.eachCell((cell) => {
+      cell.font = { name: "Arial", size: 9 };
+      cell.alignment = { vertical: "middle" };
+    });
+
+    row.getCell(10).numFmt = "dd/mm/yyyy";
+    row.getCell(11).numFmt = "dd/mm/yyyy";
+    row.getCell(12).value = { formula: `IF(AND(J${rowIndex}<>"",K${rowIndex}<>""),K${rowIndex}-J${rowIndex},"")` };
+    row.getCell(12).numFmt = "0";
+  });
+
+  const lastDataRow = Math.max(planSheet.rowCount, 2);
+  for (let rowIndex = 2; rowIndex <= lastDataRow; rowIndex += 1) {
+    planSheet.getCell(`N${rowIndex}`).dataValidation = {
+      type: "list",
+      allowBlank: true,
+      formulae: [`"${STATUS_VALUES.join(",")}"`],
+      showErrorMessage: true,
+      errorTitle: "Valeur invalide",
+      error: "Choisissez une valeur dans la liste proposée.",
+    };
+  }
+
+  const ganttSheet = workbook.addWorksheet("Gantt");
+  ganttSheet.addRow(["Tâche", "Date de début", "Durée (jours)", "État d'avancement"]);
+  ganttSheet.getRow(1).eachCell((cell) => {
+    cell.font = { name: "Arial", size: 10, bold: true, color: { argb: HEADER_TEXT } };
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: HEADER_FILL } };
+    cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+  });
+  ganttSheet.views = [{ state: "frozen", ySplit: 1 }];
+  ganttSheet.getColumn(1).width = 60;
+  ganttSheet.getColumn(2).width = 15;
+  ganttSheet.getColumn(3).width = 15;
+  ganttSheet.getColumn(4).width = 20;
+
+  tasks
+    .filter((task) => task.dateDebut || task.dateFin)
+    .forEach((task) => {
+      const row = ganttSheet.addRow([
+        task.tache,
+        parseIsoDate(task.dateDebut),
+        task.duree || null,
+        task.etatAvancement,
+      ]);
+      row.eachCell((cell) => {
+        cell.font = { name: "Arial", size: 9 };
+        cell.alignment = { vertical: "middle" };
+      });
+      row.getCell(2).numFmt = "dd/mm/yyyy";
+    });
+
+  return workbook;
+}
+
+export async function exportTasksToExcel(tasks: Task[]) {
+  const workbook = buildWorkbook(tasks);
+  return workbook.xlsx.writeBuffer();
+}
