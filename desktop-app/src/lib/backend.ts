@@ -33,6 +33,10 @@ export async function getStickyNote(windowLabel: string) {
   return invoke<StickyNotePayload>("get_sticky_note", { windowLabel });
 }
 
+export async function updateStickyNoteLayout(windowLabel: string, contentHeight: number) {
+  return invoke("update_sticky_note_layout", { windowLabel, contentHeight });
+}
+
 export async function closeCurrentStickyWindow(windowLabel: string) {
   return invoke("close_current_sticky_window", { windowLabel });
 }

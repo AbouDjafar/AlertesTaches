@@ -1,5 +1,5 @@
 import ExcelJS from "exceljs";
-import { Task } from "@/lib/store";
+import { normalizeTasks, Task } from "@/lib/store";
 
 const PLAN_COLUMNS = [
   "N°",
@@ -191,7 +191,7 @@ export async function importTasksFromExcel(file: File) {
     });
   }
 
-  return tasks;
+  return normalizeTasks(tasks);
 }
 
 function parseIsoDate(value: string) {

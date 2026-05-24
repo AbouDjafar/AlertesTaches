@@ -137,13 +137,13 @@ export function TaskDialog({ open, onOpenChange, task, onSave, taskCount }: Task
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl bg-card border-border">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl bg-card border-border p-0 max-h-[90vh] flex flex-col overflow-hidden">
+        <DialogHeader className="px-6 pt-6 shrink-0">
           <DialogTitle className="text-lg font-bold">{task ? "Modifier la tâche" : "Nouvelle tâche"}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)}>
-            <ScrollArea className="max-h-[70vh] pr-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
+            <ScrollArea className="min-h-0 flex-1 px-6">
               <Tabs defaultValue="general" className="w-full">
                 <TabsList className="mb-4 bg-background/50">
                   <TabsTrigger value="general">Général</TabsTrigger>
@@ -294,7 +294,7 @@ export function TaskDialog({ open, onOpenChange, task, onSave, taskCount }: Task
               </Tabs>
             </ScrollArea>
 
-            <DialogFooter className="mt-4 pt-4 border-t border-border">
+            <DialogFooter className="mt-0 shrink-0 border-t border-border px-6 py-4 bg-card">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Annuler</Button>
               <Button type="submit" data-testid="button-save-task">{task ? "Enregistrer" : "Créer"}</Button>
             </DialogFooter>

@@ -5,7 +5,7 @@ import { parseISO } from "date-fns/parseISO";
 import { fr } from "date-fns/locale/fr";
 import { AlertTriangle, CheckCircle2, Clock, ListTodo, Bell, TrendingUp } from "lucide-react";
 import { useTasks } from "@/hooks/use-tasks";
-import { getAlertLevel } from "@/lib/store";
+import { getAlertLevel, getTaskStatusText, isTaskCompleted } from "@/lib/store";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -18,18 +18,23 @@ const item: Variants = {
 export default function Dashboard() {
   const { tasks } = useTasks();
   const today = new Date();
+  const yAxisTick = ({ x, y, payload }: { x?: number; y?: number; payload?: { value?: string } }) => (
+    <text x={x} y={y} dy={3} textAnchor="end" fill="#F8FAFC" fontSize={10}>
+      {payload?.value ?? ""}
+    </text>
+  );
 
   const stats = useMemo(() => {
     const total = tasks.length;
-    const completed = tasks.filter(t => t.etatAvancement.toLowerCase().includes("termin")).length;
-    const inProgress = tasks.filter(t => t.etatAvancement.toLowerCase().includes("cours")).length;
-    const notStarted = tasks.filter(t => t.etatAvancement.toLowerCase().includes("non")).length;
+    const completed = tasks.filter(t => isTaskCompleted(t)).length;
+    const inProgress = tasks.filter(t => getTaskStatusText(t).includes("cours")).length;
+    const notStarted = tasks.filter(t => getTaskStatusText(t).includes("non")).length;
     const overdue = tasks.filter(t => {
-      if (!t.dateFin || t.etatAvancement.toLowerCase().includes("termin")) return false;
+      if (!t.dateFin || isTaskCompleted(t)) return false;
       return differenceInDays(parseISO(t.dateFin), today) < 0;
     }).length;
     const alerts = tasks.filter(t => {
-      if (!t.dateFin || t.etatAvancement.toLowerCase().includes("termin")) return false;
+      if (!t.dateFin || isTaskCompleted(t)) return false;
       const d = differenceInDays(parseISO(t.dateFin), today);
       return getAlertLevel(d) !== null;
     }).length;
@@ -39,7 +44,7 @@ export default function Dashboard() {
   const activeAlerts = useMemo(() => {
     return tasks
       .filter(t => {
-        if (!t.dateFin || t.etatAvancement.toLowerCase().includes("termin")) return false;
+        if (!t.dateFin || isTaskCompleted(t)) return false;
         const d = differenceInDays(parseISO(t.dateFin), today);
         return getAlertLevel(d) !== null;
       })
@@ -62,7 +67,7 @@ export default function Dashboard() {
           name: t.tache.length > 22 ? t.tache.slice(0, 22) + "…" : t.tache,
           start: Math.max(start, -30),
           duration: Math.max(end - Math.max(start, -30), 1),
-          done: t.etatAvancement.toLowerCase().includes("termin"),
+          done: isTaskCompleted(t),
         };
       });
   }, [tasks]);
@@ -134,7 +139,7 @@ export default function Dashboard() {
                 <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={ganttData} layout="vertical" margin={{ top: 0, right: 16, bottom: 0, left: 0 }}>
                     <XAxis type="number" tick={{ fontSize: 10, fill: "#F8FAFC" }} tickFormatter={(v) => v === 0 ? "Auj." : `J${v > 0 ? "+" : ""}${v}`} />
-                    <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: "#F8FAFC" }} width={110} />
+                    <YAxis type="category" dataKey="name" tick={yAxisTick} width={110} />
                     <Tooltip
                       contentStyle={{ background: "#161B22", border: "1px solid #232A33", borderRadius: 8 }}
                       labelStyle={{ color: "#E6EDF3", fontSize: 12 }}

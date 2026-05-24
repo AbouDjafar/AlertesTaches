@@ -7,11 +7,9 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { differenceInDays } from "date-fns";
-import { parseISO } from "date-fns/parseISO";
 import { v4 as uuidv4 } from "uuid";
 import { loadAppData, saveAllTasks } from "@/lib/backend";
-import { clearLegacyTasks, readLegacyTasks, type Task } from "@/lib/store";
+import { clearLegacyTasks, normalizeTask, normalizeTasks, readLegacyTasks, type Task } from "@/lib/store";
 
 type TasksContextValue = {
   tasks: Task[];
@@ -23,15 +21,6 @@ type TasksContextValue = {
 };
 
 const TasksContext = createContext<TasksContextValue | null>(null);
-
-function withComputedDuration(task: Task) {
-  return {
-    ...task,
-    duree: task.duree || (task.dateDebut && task.dateFin
-      ? Math.abs(differenceInDays(parseISO(task.dateFin), parseISO(task.dateDebut)))
-      : 0),
-  };
-}
 
 export function TasksProvider({ children }: { children: ReactNode }) {
   const [tasks, setTasksState] = useState<Task[]>([]);
@@ -48,14 +37,14 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         if (nextTasks.length === 0) {
           const legacyTasks = readLegacyTasks();
           if (legacyTasks.length > 0) {
-            nextTasks = legacyTasks.map(withComputedDuration);
+            nextTasks = normalizeTasks(legacyTasks);
             await saveAllTasks(nextTasks);
             clearLegacyTasks();
           }
         }
 
         if (!cancelled) {
-          setTasksState(nextTasks.map(withComputedDuration));
+          setTasksState(normalizeTasks(nextTasks));
         }
       } catch (error) {
         console.error("Unable to load desktop tasks", error);
@@ -73,7 +62,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const persistTasks = useCallback((nextTasks: Task[]) => {
-    const normalizedTasks = nextTasks.map(withComputedDuration);
+    const normalizedTasks = normalizeTasks(nextTasks);
     setTasksState(normalizedTasks);
     void saveAllTasks(normalizedTasks).catch((error) => {
       console.error("Unable to persist desktop tasks", error);
@@ -85,16 +74,16 @@ export function TasksProvider({ children }: { children: ReactNode }) {
   }, [persistTasks]);
 
   const addTask = useCallback((task: Task) => {
-    const nextTask = withComputedDuration({
+    const nextTask = normalizeTask({
       ...task,
       id: task.id || uuidv4(),
-    });
+    }, tasks.length);
     persistTasks([...tasks, nextTask]);
   }, [persistTasks, tasks]);
 
   const updateTask = useCallback((updated: Task) => {
     persistTasks(tasks.map((task) => (
-      task.id === updated.id ? withComputedDuration(updated) : task
+      task.id === updated.id ? normalizeTask(updated) : task
     )));
   }, [persistTasks, tasks]);
 

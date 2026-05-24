@@ -4,7 +4,7 @@ import { differenceInDays } from "date-fns";
 import { parseISO } from "date-fns/parseISO";
 import { Plus, Pencil, Trash2, Search, ChevronDown, ChevronUp, ListTodo } from "lucide-react";
 import { useTasks } from "@/hooks/use-tasks";
-import { Task, getAlertLevel } from "@/lib/store";
+import { Task, getAlertLevel, isTaskCompleted } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -49,7 +49,7 @@ export default function Tasks() {
 
   const filtered = useMemo(() => {
     let result = tasks.filter(t =>
-      (t.tache + t.activite + t.responsable + t.description).toLowerCase().includes(search.toLowerCase())
+      [t.tache, t.activite, t.responsable, t.description].join(" ").toLowerCase().includes(search.toLowerCase())
     );
     if (statusFilter !== "all") {
       result = result.filter(t => t.etatAvancement === statusFilter);
@@ -81,7 +81,7 @@ export default function Tasks() {
   const handleSave = (t: Task) => { if (editTask) updateTask(t); else addTask(t); setDialogOpen(false); };
 
   const getUrgency = (task: Task) => {
-    if (!task.dateFin || task.etatAvancement.toLowerCase().includes("termin")) return null;
+    if (!task.dateFin || isTaskCompleted(task)) return null;
     const d = differenceInDays(parseISO(task.dateFin), today);
     return getAlertLevel(d);
   };

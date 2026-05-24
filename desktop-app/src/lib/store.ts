@@ -1,3 +1,6 @@
+import { differenceInDays } from "date-fns";
+import { parseISO } from "date-fns/parseISO";
+
 export interface Task {
   id: string;
   numero: number;
@@ -39,6 +42,72 @@ export interface StickyNotePayload {
   responsable: string;
   dateFin: string;
   showCloseAll: boolean;
+}
+
+function safeText(value: unknown, fallback = "") {
+  if (typeof value === "string") {
+    return value;
+  }
+  if (value == null) {
+    return fallback;
+  }
+  return String(value);
+}
+
+function safePositiveNumber(value: unknown, fallback: number) {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function computeDuration(dateDebut: string, dateFin: string, fallback: number) {
+  if (!dateDebut || !dateFin) {
+    return fallback;
+  }
+
+  try {
+    return Math.abs(differenceInDays(parseISO(dateFin), parseISO(dateDebut)));
+  } catch {
+    return fallback;
+  }
+}
+
+export function normalizeTask(task: Partial<Task>, index = 0): Task {
+  const dateDebut = safeText(task.dateDebut);
+  const dateFin = safeText(task.dateFin);
+  const fallbackDuration = typeof task.duree === "number" && Number.isFinite(task.duree) ? task.duree : 0;
+
+  return {
+    id: safeText(task.id) || (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `task-${Date.now()}-${index}`),
+    numero: safePositiveNumber(task.numero, index + 1),
+    activite: safeText(task.activite),
+    tache: safeText(task.tache),
+    description: safeText(task.description),
+    source: safeText(task.source),
+    nature: safeText(task.nature),
+    extrantAttendu: safeText(task.extrantAttendu),
+    iov: safeText(task.iov),
+    responsable: safeText(task.responsable),
+    dateDebut,
+    dateFin,
+    duree: computeDuration(dateDebut, dateFin, fallbackDuration),
+    priorite: safeText(task.priorite),
+    etatAvancement: safeText(task.etatAvancement, "Non démarré") || "Non démarré",
+    extrantsObtenus: safeText(task.extrantsObtenus),
+    livrablesFournis: safeText(task.livrablesFournis),
+    observations: safeText(task.observations),
+    etat: task.etat == null ? null : safeText(task.etat),
+  };
+}
+
+export function normalizeTasks(tasks: Partial<Task>[]) {
+  return tasks.map((task, index) => normalizeTask(task, index));
+}
+
+export function getTaskStatusText(task: Partial<Task>) {
+  return safeText(task.etatAvancement, "Non démarré").toLowerCase();
+}
+
+export function isTaskCompleted(task: Partial<Task>) {
+  return getTaskStatusText(task).includes("termin");
 }
 
 export type AlertPalette = {

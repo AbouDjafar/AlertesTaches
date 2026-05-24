@@ -6,7 +6,9 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::Mutex;
-use tauri::{AppHandle, Manager, State, WebviewUrl, WebviewWindowBuilder};
+use tauri::{
+    AppHandle, LogicalPosition, LogicalSize, Manager, State, WebviewUrl, WebviewWindowBuilder,
+};
 use uuid::Uuid;
 
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -16,6 +18,7 @@ const PYTHON_JSON_FILE_NAME: &str = "planificateur_taches_gantt_alertes.json";
 const STARTUP_SHORTCUT_NAME: &str = "LANCER_ALERTES_DESKTOP.lnk";
 const NOTE_WIDTH: f64 = 360.0;
 const NOTE_HEIGHT: f64 = 250.0;
+const NOTE_MIN_HEIGHT: f64 = 220.0;
 const NOTE_MARGIN: f64 = 28.0;
 const NOTE_OFFSET_Y: f64 = 34.0;
 const NOTE_OFFSET_X: f64 = 46.0;
@@ -140,7 +143,17 @@ pub struct PlanificateurRow {
     pub duree: Option<serde_json::Value>,
     #[serde(rename = "Priorité", alias = "PrioritÃ©")]
     pub priorite: Option<String>,
-    #[serde(rename = "État d'avancement", alias = "Ã‰tat d'avancement")]
+    #[serde(
+        rename = "État d'avancement",
+        alias = "Ã‰tat d'avancement",
+        alias = "État d’avancement",
+        alias = "Etat d'avancement",
+        alias = "Etat d’avancement",
+        alias = "Ã‰tat dâ€™avancement",
+        alias = "Ã‰tat d’avancement",
+        alias = "Ã‰tat dâ€™avancement",
+        alias = "Ã‰tat d'avancement"
+    )]
     pub etat_avancement: Option<String>,
     #[serde(
         rename = "Extrants obtenus à date",
@@ -163,7 +176,17 @@ pub struct GanttRow {
     pub date_debut: Option<String>,
     #[serde(rename = "Durée (jours)", alias = "DurÃ©e (jours)")]
     pub duree: Option<i32>,
-    #[serde(rename = "État d'avancement", alias = "Ã‰tat d'avancement")]
+    #[serde(
+        rename = "État d'avancement",
+        alias = "Ã‰tat d'avancement",
+        alias = "État d’avancement",
+        alias = "Etat d'avancement",
+        alias = "Etat d’avancement",
+        alias = "Ã‰tat dâ€™avancement",
+        alias = "Ã‰tat d’avancement",
+        alias = "Ã‰tat dâ€™avancement",
+        alias = "Ã‰tat d'avancement"
+    )]
     pub etat_avancement: Option<String>,
 }
 
@@ -187,6 +210,8 @@ pub struct StickyNotePayload {
     pub responsable: String,
     pub date_fin: String,
     pub show_close_all: bool,
+    pub order: usize,
+    pub window_height: f64,
 }
 
 #[derive(Default)]
@@ -627,13 +652,31 @@ fn read_app_data(app: &AppHandle) -> Result<AppData, String> {
         return Ok(AppData::default());
     }
     let content = fs::read_to_string(&path).map_err(|e| format!("Lecture impossible : {}", e))?;
-    serde_json::from_str(&content).map_err(|e| format!("JSON invalide : {}", e))
+    let data: AppData = serde_json::from_str(&content).map_err(|e| format!("JSON invalide : {}", e))?;
+    let AppData {
+        tasks,
+        generated_at,
+        version,
+    } = data;
+    Ok(AppData {
+        tasks: tasks
+            .into_iter()
+            .enumerate()
+            .map(|(index, task)| normalize_task(task, index as i32 + 1))
+            .collect(),
+        generated_at,
+        version,
+    })
 }
 
 fn write_app_data(app: &AppHandle, tasks: Vec<Task>) -> Result<AppData, String> {
     let path = get_app_data_path(app);
     let data = AppData {
-        tasks,
+        tasks: tasks
+            .into_iter()
+            .enumerate()
+            .map(|(index, task)| normalize_task(task, index as i32 + 1))
+            .collect(),
         generated_at: Local::now().format("%Y-%m-%dT%H:%M:%S").to_string(),
         version: APP_VERSION.to_string(),
     };
@@ -657,6 +700,14 @@ fn task_duration(task: &Task) -> Option<i32> {
     }
 }
 
+fn normalize_text(value: String) -> String {
+    value.trim().to_string()
+}
+
+fn normalize_option_text(value: Option<String>) -> Option<String> {
+    Some(value.unwrap_or_default().trim().to_string())
+}
+
 fn normalize_task(mut task: Task, next_numero: i32) -> Task {
     if task.id.trim().is_empty() {
         task.id = Uuid::new_v4().to_string();
@@ -664,6 +715,37 @@ fn normalize_task(mut task: Task, next_numero: i32) -> Task {
     if task.numero.is_none() {
         task.numero = Some(next_numero);
     }
+    task.activite = normalize_text(task.activite);
+    task.tache = normalize_text(task.tache);
+    task.description = normalize_option_text(task.description);
+    task.source = normalize_option_text(task.source);
+    task.nature = normalize_option_text(task.nature);
+    task.extrant_attendu = normalize_option_text(task.extrant_attendu);
+    task.iov = normalize_option_text(task.iov);
+    task.responsable = normalize_option_text(task.responsable);
+    task.date_debut = normalize_option_text(task.date_debut);
+    task.date_fin = normalize_option_text(task.date_fin);
+    task.priorite = normalize_option_text(task.priorite);
+    task.etat_avancement = Some(
+        task.etat_avancement
+            .unwrap_or_else(|| "Non démarré".to_string())
+            .trim()
+            .to_string(),
+    );
+    if task
+        .etat_avancement
+        .as_deref()
+        .is_some_and(|value| value.is_empty())
+    {
+        task.etat_avancement = Some("Non démarré".to_string());
+    }
+    task.extrants_obtenus = normalize_option_text(task.extrants_obtenus);
+    task.livrables_fournis = normalize_option_text(task.livrables_fournis);
+    task.observations = normalize_option_text(task.observations);
+    task.etat = task
+        .etat
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
     task.duree = task_duration(&task);
     task
 }
@@ -782,7 +864,8 @@ fn import_tasks_from_json(content: &str) -> Result<Vec<Task>, String> {
     Ok(payload
         .planificateur
         .into_iter()
-        .map(|row| {
+        .enumerate()
+        .map(|(index, row)| {
             let numero = row.numero.and_then(|value| match value {
                 serde_json::Value::Number(number) => number.as_i64().map(|value| value as i32),
                 serde_json::Value::String(text) => text.parse::<i32>().ok(),
@@ -795,7 +878,7 @@ fn import_tasks_from_json(content: &str) -> Result<Vec<Task>, String> {
                 _ => None,
             });
 
-            Task {
+            normalize_task(Task {
                 id: Uuid::new_v4().to_string(),
                 numero,
                 activite: row.activite.unwrap_or_default(),
@@ -815,7 +898,7 @@ fn import_tasks_from_json(content: &str) -> Result<Vec<Task>, String> {
                 livrables_fournis: row.livrables_fournis,
                 observations: row.observations,
                 etat: row.etat,
-            }
+            }, index as i32 + 1)
         })
         .collect())
 }
@@ -949,8 +1032,8 @@ fn sanitize_window_label(value: &str) -> String {
     sanitized.trim_matches('-').to_string()
 }
 
-fn note_positions(app: &AppHandle, count: usize) -> Vec<(f64, f64)> {
-    let (origin_x, origin_y, screen_width, screen_height) = app
+fn screen_bounds(app: &AppHandle) -> (f64, f64, f64, f64) {
+    app
         .get_webview_window("main")
         .and_then(|window| window.primary_monitor().ok().flatten())
         .map(|monitor| {
@@ -963,14 +1046,17 @@ fn note_positions(app: &AppHandle, count: usize) -> Vec<(f64, f64)> {
                 size.height as f64,
             )
         })
-        .unwrap_or((0.0, 0.0, 1440.0, 900.0));
+        .unwrap_or((0.0, 0.0, 1440.0, 900.0))
+}
 
+fn note_positions(app: &AppHandle, heights: &[f64]) -> Vec<(f64, f64)> {
+    let (origin_x, origin_y, screen_width, screen_height) = screen_bounds(app);
     let mut positions = Vec::new();
     let mut current_y = origin_y + NOTE_MARGIN;
     let mut column_index = 0.0;
 
-    for _ in 0..count {
-        if current_y + NOTE_HEIGHT > origin_y + screen_height - NOTE_MARGIN && !positions.is_empty() {
+    for height in heights {
+        if current_y + height > origin_y + screen_height - NOTE_MARGIN && !positions.is_empty() {
             column_index += 1.0;
             current_y = origin_y + NOTE_MARGIN;
         }
@@ -979,7 +1065,7 @@ fn note_positions(app: &AppHandle, count: usize) -> Vec<(f64, f64)> {
             .max(origin_x + NOTE_MARGIN);
         let y = current_y.max(origin_y + NOTE_MARGIN);
         positions.push((x, y));
-        current_y = y + NOTE_OFFSET_Y;
+        current_y = y + height + NOTE_OFFSET_Y;
     }
 
     positions
@@ -1003,13 +1089,49 @@ fn close_existing_sticky_windows(app: &AppHandle, state: &RuntimeState) {
     }
 }
 
+fn apply_sticky_note_layout(app: &AppHandle, state: &RuntimeState) -> Result<(), String> {
+    let note_entries = state
+        .sticky_notes
+        .lock()
+        .map_err(|_| "Sticky notes state is unavailable.".to_string())?
+        .iter()
+        .map(|(label, note)| (label.clone(), note.clone()))
+        .collect::<Vec<_>>();
+
+    if note_entries.is_empty() {
+        return Ok(());
+    }
+
+    let (_, _, _, screen_height) = screen_bounds(app);
+    let max_height = (screen_height - (NOTE_MARGIN * 2.0)).max(NOTE_MIN_HEIGHT);
+    let mut ordered_notes = note_entries;
+    ordered_notes.sort_by_key(|(_, note)| note.order);
+
+    let heights = ordered_notes
+        .iter()
+        .map(|(_, note)| note.window_height.clamp(NOTE_MIN_HEIGHT, max_height))
+        .collect::<Vec<_>>();
+    let positions = note_positions(app, &heights);
+
+    for (index, (label, _note)) in ordered_notes.iter().enumerate() {
+        if let Some(window) = app.get_webview_window(label) {
+            let _ = window.set_size(LogicalSize::new(NOTE_WIDTH, heights[index]));
+            if let Some((x, y)) = positions.get(index).copied() {
+                let _ = window.set_position(LogicalPosition::new(x, y));
+            }
+        }
+    }
+
+    Ok(())
+}
+
 fn create_sticky_windows(app: &AppHandle, state: &RuntimeState, alerts: &[Alert]) -> Result<usize, String> {
     close_existing_sticky_windows(app, state);
     if alerts.is_empty() {
         return Ok(0);
     }
 
-    let positions = note_positions(app, alerts.len());
+    let positions = note_positions(app, &vec![NOTE_HEIGHT; alerts.len()]);
     let mut sticky_notes = HashMap::new();
 
     for (index, alert) in alerts.iter().enumerate() {
@@ -1038,8 +1160,11 @@ fn create_sticky_windows(app: &AppHandle, state: &RuntimeState, alerts: &[Alert]
                 .task
                 .date_fin
                 .clone()
+                .filter(|value| !value.trim().is_empty())
                 .unwrap_or_else(|| "-".to_string()),
             show_close_all: index == 0,
+            order: index,
+            window_height: NOTE_HEIGHT,
         };
 
         let (x, y) = positions.get(index).copied().unwrap_or((80.0, 80.0));
@@ -1055,12 +1180,14 @@ fn create_sticky_windows(app: &AppHandle, state: &RuntimeState, alerts: &[Alert]
             .build()
             .map_err(|error| format!("Unable to create sticky note window: {}", error))?;
 
-        sticky_notes.insert(label, note_payload);
+        sticky_notes.insert(label.clone(), note_payload);
     }
 
     if let Ok(mut notes) = state.sticky_notes.lock() {
         *notes = sticky_notes;
     }
+
+    apply_sticky_note_layout(app, state)?;
 
     Ok(alerts.len())
 }
@@ -1243,6 +1370,31 @@ fn get_sticky_note(window_label: String, state: State<'_, RuntimeState>) -> Resu
 }
 
 #[tauri::command]
+fn update_sticky_note_layout(
+    app: AppHandle,
+    window_label: String,
+    content_height: f64,
+    state: State<'_, RuntimeState>,
+) -> Result<(), String> {
+    {
+        let mut notes = state
+            .sticky_notes
+            .lock()
+            .map_err(|_| "Sticky notes state is unavailable.".to_string())?;
+        let note = notes
+            .get_mut(&window_label)
+            .ok_or_else(|| "Sticky note payload introuvable.".to_string())?;
+        note.window_height = if content_height.is_finite() {
+            content_height.max(NOTE_MIN_HEIGHT)
+        } else {
+            NOTE_HEIGHT
+        };
+    }
+
+    apply_sticky_note_layout(&app, &state)
+}
+
+#[tauri::command]
 fn close_current_sticky_window(
     app: AppHandle,
     window_label: String,
@@ -1377,6 +1529,7 @@ pub fn run() {
             write_app_log_entry,
             preview_sticky_alerts,
             get_sticky_note,
+            update_sticky_note_layout,
             close_current_sticky_window,
             close_all_sticky_windows,
             sync_to_phone,

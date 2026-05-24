@@ -1,7 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { BellRing, X } from "lucide-react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { closeAllStickyWindows, closeCurrentStickyWindow, getStickyNote } from "@/lib/backend";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import {
+  closeAllStickyWindows,
+  closeCurrentStickyWindow,
+  getStickyNote,
+  updateStickyNoteLayout,
+} from "@/lib/backend";
 import type { StickyNotePayload } from "@/lib/store";
 
 const NOTE_THEME: Record<string, { surface: string; border: string; accent: string; title: string; meta: string; badge: string }> = {
@@ -15,6 +21,7 @@ const NOTE_THEME: Record<string, { surface: string; border: string; accent: stri
 export default function StickyNoteWindow() {
   const [note, setNote] = useState<StickyNotePayload | null>(null);
   const [windowLabel, setWindowLabel] = useState("");
+  const cardRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const currentWindow = getCurrentWebviewWindow();
@@ -24,25 +31,90 @@ export default function StickyNoteWindow() {
     });
   }, []);
 
+  useEffect(() => {
+    const root = document.getElementById("root");
+    document.body.style.overflow = "hidden";
+    document.body.style.background = "transparent";
+    document.documentElement.style.overflow = "hidden";
+    if (root) {
+      root.style.overflow = "hidden";
+      root.style.background = "transparent";
+    }
+
+    return () => {
+      document.body.style.overflow = "";
+      document.body.style.background = "";
+      document.documentElement.style.overflow = "";
+      if (root) {
+        root.style.overflow = "";
+        root.style.background = "";
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!note || !windowLabel || !cardRef.current) {
+      return;
+    }
+
+    let lastHeight = 0;
+    const element = cardRef.current;
+    const syncHeight = () => {
+      const nextHeight = Math.ceil(element.getBoundingClientRect().height + 16);
+      if (Math.abs(nextHeight - lastHeight) < 2) {
+        return;
+      }
+      lastHeight = nextHeight;
+      void updateStickyNoteLayout(windowLabel, nextHeight).catch((error) => {
+        console.error("Unable to update sticky note layout", error);
+      });
+    };
+
+    syncHeight();
+    const observer = new ResizeObserver(() => {
+      syncHeight();
+    });
+    observer.observe(element);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [note, windowLabel]);
+
   const theme = useMemo(() => NOTE_THEME[note?.color ?? "blue"] ?? NOTE_THEME.blue, [note?.color]);
+
+  const handleDragStart = async (event: MouseEvent<HTMLElement>) => {
+    const target = event.target as HTMLElement;
+    if (target.closest("button")) {
+      return;
+    }
+
+    try {
+      await getCurrentWindow().startDragging();
+    } catch (error) {
+      console.error("Unable to start sticky note drag", error);
+    }
+  };
 
   if (!note) {
     return (
-      <div className="h-screen w-screen bg-transparent flex items-center justify-center text-white text-sm">
+      <div className="w-full h-full overflow-hidden bg-transparent flex items-center justify-center text-white text-sm">
         Chargement...
       </div>
     );
   }
 
   return (
-    <div className="h-screen w-screen bg-transparent p-2">
+    <div className="w-full h-full overflow-hidden bg-transparent p-2">
       <div
-        className="h-full w-full rounded-[24px] border shadow-2xl flex flex-col"
+        ref={cardRef}
+        className="w-full rounded-[24px] border shadow-2xl flex flex-col overflow-hidden select-none"
         style={{
           backgroundColor: theme.surface,
           borderColor: theme.border,
           boxShadow: "0 20px 45px rgba(20,31,46,0.20)",
         }}
+        onMouseDown={(event) => { void handleDragStart(event); }}
       >
         <div className="p-4 flex items-start gap-3">
           <div
@@ -69,7 +141,7 @@ export default function StickyNoteWindow() {
           </button>
         </div>
 
-        <div className="px-4 pb-4 flex-1 flex flex-col gap-4">
+        <div className="px-4 pb-4 flex flex-col gap-4">
           <div className="rounded-2xl bg-white/40 border border-white/30 p-4 min-h-[88px]">
             <p className="text-sm leading-6" style={{ color: theme.meta }}>
               {note.description}

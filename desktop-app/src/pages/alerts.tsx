@@ -4,7 +4,7 @@ import { differenceInDays } from "date-fns";
 import { parseISO } from "date-fns/parseISO";
 import { Bell, CheckCircle2 } from "lucide-react";
 import { useTasks } from "@/hooks/use-tasks";
-import { getAlertLevel } from "@/lib/store";
+import { getAlertLevel, isTaskCompleted } from "@/lib/store";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface AlertItem {
@@ -73,7 +73,7 @@ export default function Alerts() {
   const alertsByColor = useMemo(() => {
     const groups: Record<string, AlertItem[]> = {};
     for (const t of tasks) {
-      if (!t.dateFin || t.etatAvancement.toLowerCase().includes("termin")) continue;
+      if (!t.dateFin || isTaskCompleted(t)) continue;
       const d = differenceInDays(parseISO(t.dateFin), today);
       const level = getAlertLevel(d);
       if (!level) continue;
