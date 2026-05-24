@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -12,7 +12,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const taskSchema = z.object({
   numero: z.coerce.number().optional(),
@@ -24,8 +23,8 @@ const taskSchema = z.object({
   extrantAttendu: z.string().optional(),
   iov: z.string().optional(),
   responsable: z.string().optional(),
-  dateDebut: z.string().optional(),
-  dateFin: z.string().optional(),
+  dateDebut: z.string().min(1, "Date de debut requise"),
+  dateFin: z.string().min(1, "Date de fin requise"),
   duree: z.coerce.number().optional(),
   priorite: z.string().optional(),
   etatAvancement: z.string(),
@@ -36,6 +35,7 @@ const taskSchema = z.object({
 });
 
 type TaskForm = z.infer<typeof taskSchema>;
+type TaskStep = 0 | 1 | 2;
 
 interface TaskDialogProps {
   open: boolean;
@@ -45,7 +45,10 @@ interface TaskDialogProps {
   taskCount: number;
 }
 
+const STEP_TITLES = ["General", "Planning", "Suivi"] as const;
+
 export function TaskDialog({ open, onOpenChange, task, onSave, taskCount }: TaskDialogProps) {
+  const [step, setStep] = useState<TaskStep>(0);
   const form = useForm<TaskForm>({
     resolver: zodResolver(taskSchema),
     defaultValues: {
@@ -53,6 +56,8 @@ export function TaskDialog({ open, onOpenChange, task, onSave, taskCount }: Task
       priorite: "Moyen",
       activite: "",
       tache: "",
+      dateDebut: "",
+      dateFin: "",
     },
   });
 
@@ -60,6 +65,8 @@ export function TaskDialog({ open, onOpenChange, task, onSave, taskCount }: Task
     if (!open) {
       return;
     }
+
+    setStep(0);
 
     if (task) {
       form.reset({
@@ -106,6 +113,28 @@ export function TaskDialog({ open, onOpenChange, task, onSave, taskCount }: Task
     });
   }, [form, open, task, taskCount]);
 
+  const validateCurrentStep = async () => {
+    if (step === 0) {
+      return form.trigger(["activite", "tache"]);
+    }
+    if (step === 1) {
+      return form.trigger(["dateDebut", "dateFin"]);
+    }
+    return true;
+  };
+
+  const handleNext = async () => {
+    const isValid = await validateCurrentStep();
+    if (!isValid) {
+      return;
+    }
+    setStep((current) => Math.min(current + 1, 2) as TaskStep);
+  };
+
+  const handlePrevious = () => {
+    setStep((current) => Math.max(current - 1, 0) as TaskStep);
+  };
+
   const onSubmit = (values: TaskForm) => {
     let duree = values.duree;
     if (!duree && values.dateDebut && values.dateFin) {
@@ -127,8 +156,8 @@ export function TaskDialog({ open, onOpenChange, task, onSave, taskCount }: Task
       extrantAttendu: values.extrantAttendu ?? "",
       iov: values.iov ?? "",
       responsable: values.responsable ?? "",
-      dateDebut: values.dateDebut ?? "",
-      dateFin: values.dateFin ?? "",
+      dateDebut: values.dateDebut,
+      dateFin: values.dateFin,
       duree: duree ?? 0,
       priorite: values.priorite ?? "Moyen",
       etatAvancement: values.etatAvancement,
@@ -143,22 +172,30 @@ export function TaskDialog({ open, onOpenChange, task, onSave, taskCount }: Task
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-2xl overflow-hidden border-border bg-card p-0 flex flex-col">
+      <DialogContent className="flex max-h-[90vh] max-w-2xl flex-col overflow-hidden border-border bg-card p-0">
         <DialogHeader className="shrink-0 px-6 pt-6">
           <DialogTitle className="text-lg font-bold">{task ? "Modifier la tache" : "Nouvelle tache"}</DialogTitle>
+          <div className="mt-3 flex items-center gap-2">
+            {STEP_TITLES.map((title, index) => {
+              const isActive = step === index;
+              const isDone = step > index;
+              return (
+                <div
+                  key={title}
+                  className={`rounded-full border px-3 py-1 text-xs font-semibold ${isActive ? "border-primary bg-primary/10 text-primary" : isDone ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400" : "border-border text-muted-foreground"}`}
+                >
+                  {index + 1}. {title}
+                </div>
+              );
+            })}
+          </div>
         </DialogHeader>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
             <div className="min-h-0 flex-1 overflow-y-hidden px-6 pr-3 hover:overflow-y-auto">
-              <Tabs defaultValue="general" className="w-full">
-                <TabsList className="mb-4 bg-background/50">
-                  <TabsTrigger value="general">General</TabsTrigger>
-                  <TabsTrigger value="planning">Planning</TabsTrigger>
-                  <TabsTrigger value="suivi">Suivi</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="general" className="space-y-4 pb-6">
+              {step === 0 && (
+                <div className="space-y-4 pb-6">
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
@@ -180,7 +217,7 @@ export function TaskDialog({ open, onOpenChange, task, onSave, taskCount }: Task
                           <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl><SelectTrigger data-testid="select-task-priorite"><SelectValue /></SelectTrigger></FormControl>
                             <SelectContent>
-                          <SelectItem value="Élevé">Élevé</SelectItem>
+                              <SelectItem value="Élevé">Élevé</SelectItem>
                               <SelectItem value="Moyen">Moyen</SelectItem>
                               <SelectItem value="Faible">Faible</SelectItem>
                             </SelectContent>
@@ -263,16 +300,18 @@ export function TaskDialog({ open, onOpenChange, task, onSave, taskCount }: Task
                       </FormItem>
                     )}
                   />
-                </TabsContent>
+                </div>
+              )}
 
-                <TabsContent value="planning" className="space-y-4 pb-6">
+              {step === 1 && (
+                <div className="space-y-4 pb-6">
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
                       name="dateDebut"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Date de debut</FormLabel>
+                          <FormLabel>Date de debut *</FormLabel>
                           <FormControl><Input type="date" {...field} data-testid="input-task-date-debut" /></FormControl>
                           <FormMessage />
                         </FormItem>
@@ -283,7 +322,7 @@ export function TaskDialog({ open, onOpenChange, task, onSave, taskCount }: Task
                       name="dateFin"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Date de fin</FormLabel>
+                          <FormLabel>Date de fin *</FormLabel>
                           <FormControl><Input type="date" {...field} data-testid="input-task-date-fin" /></FormControl>
                           <FormMessage />
                         </FormItem>
@@ -333,9 +372,11 @@ export function TaskDialog({ open, onOpenChange, task, onSave, taskCount }: Task
                       </FormItem>
                     )}
                   />
-                </TabsContent>
+                </div>
+              )}
 
-                <TabsContent value="suivi" className="space-y-4 pb-6">
+              {step === 2 && (
+                <div className="space-y-4 pb-6">
                   <FormField
                     control={form.control}
                     name="extrantsObtenus"
@@ -369,13 +410,29 @@ export function TaskDialog({ open, onOpenChange, task, onSave, taskCount }: Task
                       </FormItem>
                     )}
                   />
-                </TabsContent>
-              </Tabs>
+                </div>
+              )}
             </div>
 
             <DialogFooter className="mt-0 shrink-0 border-t border-border bg-card px-6 py-4">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Annuler</Button>
-              <Button type="submit" data-testid="button-save-task">{task ? "Enregistrer" : "Creer"}</Button>
+              {step === 0 ? (
+                <>
+                  <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Annuler</Button>
+                  <Button type="button" onClick={() => { void handleNext(); }}>Suivant</Button>
+                </>
+              ) : step === 1 ? (
+                <>
+                  <Button type="button" variant="outline" onClick={handlePrevious}>Precedent</Button>
+                  <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Annuler</Button>
+                  <Button type="button" onClick={() => { void handleNext(); }}>Suivant</Button>
+                </>
+              ) : (
+                <>
+                  <Button type="button" variant="outline" onClick={handlePrevious}>Precedent</Button>
+                  <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Annuler</Button>
+                  <Button type="submit" data-testid="button-save-task">{task ? "Enregistrer" : "Enregistrer"}</Button>
+                </>
+              )}
             </DialogFooter>
           </form>
         </Form>

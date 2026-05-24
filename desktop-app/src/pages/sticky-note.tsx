@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   closeAllStickyWindows,
   closeCurrentStickyWindow,
@@ -43,6 +42,7 @@ export default function StickyNoteWindow() {
     document.body.style.overflow = "hidden";
     document.body.style.background = "transparent";
     document.documentElement.style.overflow = "hidden";
+    document.documentElement.style.background = "transparent";
 
     if (root) {
       root.style.overflow = "hidden";
@@ -53,6 +53,7 @@ export default function StickyNoteWindow() {
       document.body.style.overflow = "";
       document.body.style.background = "";
       document.documentElement.style.overflow = "";
+      document.documentElement.style.background = "";
       if (root) {
         root.style.overflow = "";
         root.style.background = "";
@@ -69,7 +70,7 @@ export default function StickyNoteWindow() {
     const element = cardRef.current;
 
     const syncHeight = () => {
-      const nextHeight = Math.ceil(element.getBoundingClientRect().height + 16);
+      const nextHeight = Math.ceil(element.getBoundingClientRect().height);
       if (Math.abs(nextHeight - lastHeight) < 2) {
         return;
       }
@@ -90,19 +91,6 @@ export default function StickyNoteWindow() {
     };
   }, [note, windowLabel]);
 
-  const handleDragStart = async (event: MouseEvent<HTMLElement>) => {
-    const target = event.target as HTMLElement;
-    if (target.closest("button")) {
-      return;
-    }
-
-    try {
-      await getCurrentWindow().startDragging();
-    } catch (error) {
-      console.error("Unable to start sticky note drag", error);
-    }
-  };
-
   if (!note) {
     return <div className="h-full w-full overflow-hidden bg-transparent" />;
   }
@@ -112,8 +100,6 @@ export default function StickyNoteWindow() {
       <div ref={cardRef}>
         <StickyNoteCard
           note={note}
-          onMouseDownCapture={(event) => { void handleDragStart(event); }}
-          onMouseDown={(event) => { void handleDragStart(event); }}
           onClose={() => { void closeCurrentStickyWindow(windowLabel); }}
           onCloseAll={note.showCloseAll ? () => { void closeAllStickyWindows(); } : undefined}
         />
