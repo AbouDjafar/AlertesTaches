@@ -1,6 +1,6 @@
 [package]
 name = "alertes-taches"
-version = "1.0.4"
+version = "1.0.5"
 description = "Alertes Taches - Gestionnaire de planificateur de taches"
 authors = ["AbouDjafar"]
 edition = "2021"
