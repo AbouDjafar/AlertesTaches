@@ -8,6 +8,7 @@ import { Sidebar } from "./components/layout/sidebar";
 import Dashboard from "./pages/dashboard";
 import Tasks from "./pages/tasks";
 import Alerts from "./pages/alerts";
+import Compilation from "./pages/compilation";
 import ImportExport from "./pages/import-export";
 import Settings from "./pages/settings";
 import StickyNoteWindow from "./pages/sticky-note";
@@ -23,6 +24,7 @@ function Router() {
           <Route path="/tasks" component={Tasks} />
           <Route path="/alerts" component={Alerts} />
           <Route path="/import-export" component={ImportExport} />
+          <Route path="/compilation" component={Compilation} />
           <Route path="/settings" component={Settings} />
           <Route component={NotFound} />
         </Switch>

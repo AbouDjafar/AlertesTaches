@@ -488,6 +488,28 @@ fn get_settings_path(app: &AppHandle) -> PathBuf {
     data_dir.join(SETTINGS_FILE_NAME)
 }
 
+fn get_exports_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    let documents_dir = app
+        .path()
+        .document_dir()
+        .map_err(|error| format!("Unable to resolve Documents directory: {}", error))?;
+    let exports_dir = documents_dir.join("Exports Alertes Taches");
+    fs::create_dir_all(&exports_dir)
+        .map_err(|error| format!("Unable to create exports directory: {}", error))?;
+    Ok(exports_dir)
+}
+
+fn open_directory_in_explorer(path: &PathBuf) -> Result<(), String> {
+    if cfg!(target_os = "windows") {
+        Command::new("explorer.exe")
+            .arg(path)
+            .spawn()
+            .map_err(|error| format!("Unable to open Explorer: {}", error))?;
+    }
+
+    Ok(())
+}
+
 fn default_log_directory() -> PathBuf {
     std::env::current_exe()
         .ok()
@@ -1133,6 +1155,7 @@ fn create_sticky_windows(app: &AppHandle, state: &RuntimeState, alerts: &[Alert]
 
     let positions = note_positions(app, &vec![NOTE_HEIGHT; alerts.len()]);
     let mut sticky_notes = HashMap::new();
+    let mut pending_windows = Vec::new();
 
     for (index, alert) in alerts.iter().enumerate() {
         let label = format!(
@@ -1168,8 +1191,17 @@ fn create_sticky_windows(app: &AppHandle, state: &RuntimeState, alerts: &[Alert]
         };
 
         let (x, y) = positions.get(index).copied().unwrap_or((80.0, 80.0));
+        sticky_notes.insert(label.clone(), note_payload);
+        pending_windows.push((label, alert.task.tache.clone(), x, y));
+    }
+
+    if let Ok(mut notes) = state.sticky_notes.lock() {
+        *notes = sticky_notes;
+    }
+
+    for (label, task_title, x, y) in pending_windows {
         WebviewWindowBuilder::new(app, &label, WebviewUrl::App("index.html".into()))
-            .title(format!("Alertes Taches - {}", alert.task.tache))
+            .title(format!("Alertes Taches - {}", task_title))
             .decorations(false)
             .resizable(false)
             .visible(true)
@@ -1180,11 +1212,10 @@ fn create_sticky_windows(app: &AppHandle, state: &RuntimeState, alerts: &[Alert]
             .build()
             .map_err(|error| format!("Unable to create sticky note window: {}", error))?;
 
-        sticky_notes.insert(label.clone(), note_payload);
-    }
-
-    if let Ok(mut notes) = state.sticky_notes.lock() {
-        *notes = sticky_notes;
+        if let Some(window) = app.get_webview_window(&label) {
+            let _ = window.show();
+            let _ = window.set_focus();
+        }
     }
 
     apply_sticky_note_layout(app, state)?;
@@ -1268,6 +1299,19 @@ fn export_json(app: AppHandle) -> Result<String, String> {
     let data = read_app_data(&app)?;
     serde_json::to_string_pretty(&build_export_payload(&data.tasks))
         .map_err(|error| format!("Serialization failed: {}", error))
+}
+
+#[tauri::command]
+fn save_export_file(
+    app: AppHandle,
+    file_name: String,
+    bytes: Vec<u8>,
+) -> Result<String, String> {
+    let exports_dir = get_exports_dir(&app)?;
+    let file_path = exports_dir.join(file_name);
+    fs::write(&file_path, bytes).map_err(|error| format!("Unable to write export file: {}", error))?;
+    open_directory_in_explorer(&exports_dir)?;
+    Ok(file_path.to_string_lossy().to_string())
 }
 
 #[tauri::command]
@@ -1523,6 +1567,7 @@ pub fn run() {
             get_active_alerts,
             import_json,
             export_json,
+            save_export_file,
             get_stats,
             get_settings,
             update_settings,

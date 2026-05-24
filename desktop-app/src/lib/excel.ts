@@ -301,3 +301,46 @@ export async function exportTasksToExcel(tasks: Task[]) {
   const workbook = buildWorkbook(tasks);
   return workbook.xlsx.writeBuffer();
 }
+
+export type CompiledOwnerDataset = {
+  owner: string;
+  tasks: Task[];
+};
+
+export async function exportCompiledWorkbook(datasets: CompiledOwnerDataset[]) {
+  const workbook = new ExcelJS.Workbook();
+
+  datasets.forEach(({ owner, tasks }) => {
+    const ownerWorkbook = buildWorkbook(tasks);
+    const sourceSheet = ownerWorkbook.getWorksheet("Planificateur");
+    if (!sourceSheet) {
+      return;
+    }
+
+    const targetSheet = workbook.addWorksheet(owner.slice(0, 31) || "Utilisateur");
+    sourceSheet.eachRow({ includeEmpty: true }, (row, rowNumber) => {
+      const targetRow = targetSheet.getRow(rowNumber);
+      row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+        const cloned = targetRow.getCell(colNumber);
+        cloned.value = cell.value as ExcelJS.CellValue;
+        cloned.style = { ...cell.style };
+        cloned.numFmt = cell.numFmt;
+      });
+      targetRow.height = row.height;
+      targetRow.commit();
+    });
+
+    sourceSheet.columns.forEach((column, index) => {
+      const targetColumn = targetSheet.getColumn(index + 1);
+      targetColumn.width = column.width;
+    });
+    targetSheet.views = sourceSheet.views;
+    targetSheet.autoFilter = sourceSheet.autoFilter;
+  });
+
+  if (workbook.worksheets.length === 0) {
+    throw new Error("Aucune feuille n'a pu être générée.");
+  }
+
+  return workbook.xlsx.writeBuffer();
+}

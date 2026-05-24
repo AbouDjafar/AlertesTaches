@@ -26,9 +26,24 @@ export default function StickyNoteWindow() {
   useEffect(() => {
     const currentWindow = getCurrentWebviewWindow();
     setWindowLabel(currentWindow.label);
-    void getStickyNote(currentWindow.label).then(setNote).catch((error) => {
-      console.error("Unable to load sticky note payload", error);
-    });
+
+    const loadStickyNote = async () => {
+      for (let attempt = 0; attempt < 20; attempt += 1) {
+        try {
+          const payload = await getStickyNote(currentWindow.label);
+          setNote(payload);
+          return;
+        } catch (error) {
+          if (attempt === 19) {
+            console.error("Unable to load sticky note payload", error);
+            return;
+          }
+          await new Promise((resolve) => window.setTimeout(resolve, 120));
+        }
+      }
+    };
+
+    void loadStickyNote();
   }, []);
 
   useEffect(() => {
@@ -36,6 +51,7 @@ export default function StickyNoteWindow() {
     document.body.style.overflow = "hidden";
     document.body.style.background = "transparent";
     document.documentElement.style.overflow = "hidden";
+
     if (root) {
       root.style.overflow = "hidden";
       root.style.background = "transparent";
@@ -59,6 +75,7 @@ export default function StickyNoteWindow() {
 
     let lastHeight = 0;
     const element = cardRef.current;
+
     const syncHeight = () => {
       const nextHeight = Math.ceil(element.getBoundingClientRect().height + 16);
       if (Math.abs(nextHeight - lastHeight) < 2) {
@@ -98,17 +115,19 @@ export default function StickyNoteWindow() {
 
   if (!note) {
     return (
-      <div className="w-full h-full overflow-hidden bg-transparent flex items-center justify-center text-white text-sm">
-        Chargement...
+      <div className="h-full w-full overflow-hidden bg-transparent p-2">
+        <div className="flex h-full w-full items-center justify-center rounded-[24px] border border-slate-200 bg-slate-50/95 text-sm text-slate-700 shadow-2xl">
+          Chargement...
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="w-full h-full overflow-hidden bg-transparent p-2">
+    <div className="h-full w-full overflow-hidden bg-transparent p-2">
       <div
         ref={cardRef}
-        className="w-full rounded-[24px] border shadow-2xl flex flex-col overflow-hidden select-none"
+        className="flex w-full select-none flex-col overflow-hidden rounded-[24px] border shadow-2xl"
         style={{
           backgroundColor: theme.surface,
           borderColor: theme.border,
@@ -116,33 +135,33 @@ export default function StickyNoteWindow() {
         }}
         onMouseDown={(event) => { void handleDragStart(event); }}
       >
-        <div className="p-4 flex items-start gap-3">
+        <div className="flex items-start gap-3 p-4">
           <div
-            className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl"
             style={{ backgroundColor: theme.border, color: theme.accent }}
           >
-            <BellRing className="w-5 h-5" />
+            <BellRing className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-bold tracking-[0.18em] uppercase" style={{ color: theme.badge }}>
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em]" style={{ color: theme.badge }}>
               {note.label}
             </p>
-            <h1 className="text-lg font-bold leading-tight mt-1" style={{ color: theme.title }}>
+            <h1 className="mt-1 text-lg font-bold leading-tight" style={{ color: theme.title }}>
               {note.tache}
             </h1>
           </div>
           <button
             type="button"
-            className="w-10 h-10 rounded-xl flex items-center justify-center border"
+            className="flex h-10 w-10 items-center justify-center rounded-xl border"
             style={{ borderColor: theme.border, color: theme.meta }}
             onClick={() => { void closeCurrentStickyWindow(windowLabel); }}
           >
-            <X className="w-4 h-4" />
+            <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="px-4 pb-4 flex flex-col gap-4">
-          <div className="rounded-2xl bg-white/40 border border-white/30 p-4 min-h-[88px]">
+        <div className="flex flex-col gap-4 px-4 pb-4">
+          <div className="min-h-[88px] rounded-2xl border border-white/30 bg-white/40 p-4">
             <p className="text-sm leading-6" style={{ color: theme.meta }}>
               {note.description}
             </p>
@@ -154,10 +173,10 @@ export default function StickyNoteWindow() {
           </div>
 
           {note.showCloseAll && (
-            <div className="pt-2 flex justify-end">
+            <div className="flex justify-end pt-2">
               <button
                 type="button"
-                className="px-4 py-2 rounded-xl text-sm font-semibold border"
+                className="rounded-xl border px-4 py-2 text-sm font-semibold"
                 style={{ borderColor: theme.border, color: theme.title }}
                 onClick={() => { void closeAllStickyWindows(); }}
               >

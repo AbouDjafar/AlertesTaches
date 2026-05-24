@@ -17,6 +17,10 @@ export async function exportJsonContent() {
   return invoke<string>("export_json");
 }
 
+export async function saveExportFile(fileName: string, bytes: number[]) {
+  return invoke<string>("save_export_file", { fileName, bytes });
+}
+
 export async function getDesktopSettings() {
   return invoke<AppSettings>("get_settings");
 }

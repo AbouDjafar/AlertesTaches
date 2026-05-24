@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { BellRing, FileText, Settings2, UserRound } from "lucide-react";
+import packageInfo from "../../package.json";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
@@ -18,10 +19,10 @@ export default function Settings() {
     try {
       const nextSettings = await setSettings({ ...settings, ...partial });
       toast({
-        title: "Réglages enregistrés",
+        title: "Reglages enregistres",
         description: nextSettings.launchStickyNotesOnStartup
-          ? "Les pense-bêtes peuvent maintenant démarrer avec Windows."
-          : "Les réglages ont été mis à jour.",
+          ? "Les pense-betes peuvent maintenant demarrer avec Windows."
+          : "Les reglages ont ete mis a jour.",
       });
     } catch (error) {
       console.error(error);
@@ -40,13 +41,13 @@ export default function Settings() {
     try {
       const count = await previewStickyAlerts();
       toast({
-        title: "Pense-bêtes lancés",
-        description: count > 0 ? `${count} fenêtre(s) d'alerte ouvertes.` : "Aucune alerte active à afficher.",
+        title: "Pense-betes lances",
+        description: count > 0 ? `${count} fenetre(s) d'alerte ouvertes.` : "Aucune alerte active a afficher.",
       });
     } catch (error) {
       console.error(error);
       toast({
-        title: "Aperçu impossible",
+        title: "Apercu impossible",
         description: String(error),
         variant: "destructive",
       });
@@ -57,29 +58,29 @@ export default function Settings() {
 
   return (
     <ScrollArea className="h-full">
-      <div className="p-8 max-w-[960px] mx-auto space-y-8">
+      <div className="mx-auto max-w-[960px] space-y-8 p-8">
         <div>
-          <p className="text-xs font-bold tracking-widest text-muted-foreground uppercase mb-1">Configuration</p>
-          <h1 className="text-3xl font-bold text-foreground tracking-tight">Réglages</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Paramètres de journalisation, démarrage automatique et informations développeur.
+          <p className="mb-1 text-xs font-bold uppercase tracking-widest text-muted-foreground">Configuration</p>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Reglages</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Parametres de journalisation, demarrage automatique et informations developpeur.
           </p>
         </div>
 
-        <section className="bg-card border border-border rounded-2xl p-6 space-y-6">
+        <section className="rounded-2xl border border-border bg-card p-6 space-y-6">
           <div className="flex items-center gap-3">
-            <Settings2 className="w-5 h-5 text-primary" />
+            <Settings2 className="h-5 w-5 text-primary" />
             <div>
               <h2 className="text-lg font-semibold text-foreground">Application</h2>
-              <p className="text-sm text-muted-foreground">Réglages persistants stockés séparément des tâches.</p>
+              <p className="text-sm text-muted-foreground">Reglages persistants stockes separement des taches.</p>
             </div>
           </div>
 
           <div className="flex items-start justify-between gap-6">
             <div className="space-y-1">
-              <p className="text-sm font-semibold text-foreground">Logs détaillés</p>
+              <p className="text-sm font-semibold text-foreground">Logs detailles</p>
               <p className="text-sm text-muted-foreground">
-                Par défaut, seul le niveau erreur est écrit dans le fichier de log. Active cette option pour capturer aussi les informations et avertissements.
+                Par defaut, seul le niveau erreur est ecrit dans le fichier de log. Active cette option pour capturer aussi les informations et avertissements.
               </p>
             </div>
             <Switch
@@ -91,9 +92,9 @@ export default function Settings() {
 
           <div className="flex items-start justify-between gap-6">
             <div className="space-y-1">
-              <p className="text-sm font-semibold text-foreground">Lancer les pense-bêtes au démarrage</p>
+              <p className="text-sm font-semibold text-foreground">Lancer les pense-betes au demarrage</p>
               <p className="text-sm text-muted-foreground">
-                Crée ou supprime le raccourci Windows de démarrage pour ouvrir directement les fenêtres d’alerte natives.
+                Cree ou supprime le raccourci Windows de demarrage pour ouvrir directement les fenetres d'alerte natives.
               </p>
             </div>
             <Switch
@@ -105,41 +106,43 @@ export default function Settings() {
 
           <div className="pt-2">
             <Button onClick={() => { void handlePreview(); }} disabled={isPreviewing} className="gap-2">
-              <BellRing className="w-4 h-4" />
-              {isPreviewing ? "Ouverture..." : "Tester les pense-bêtes"}
+              <BellRing className="h-4 w-4" />
+              {isPreviewing ? "Ouverture..." : "Tester les pense-betes"}
             </Button>
           </div>
         </section>
 
-        <section className="bg-card border border-border rounded-2xl p-6 space-y-4">
+        <section className="rounded-2xl border border-border bg-card p-6 space-y-4">
           <div className="flex items-center gap-3">
-            <FileText className="w-5 h-5 text-primary" />
+            <FileText className="h-5 w-5 text-primary" />
             <div>
               <h2 className="text-lg font-semibold text-foreground">Journalisation</h2>
               <p className="text-sm text-muted-foreground">Le fichier `alertes-taches-log.txt` reste le point de diagnostic principal.</p>
             </div>
           </div>
           <div className="rounded-xl border border-border bg-background/40 p-4 text-sm text-muted-foreground">
-            Les erreurs sont toujours écrites dans le fichier de log. Les messages `INFO` et `WARN` n’apparaissent que si l’option de logs détaillés est activée.
+            Les erreurs sont toujours ecrites dans le fichier de log. Les messages `INFO` et `WARN` n'apparaissent que si l'option de logs detailles est activee.
           </div>
         </section>
 
-        <section className="bg-card border border-border rounded-2xl p-6 space-y-4">
+        <section className="rounded-2xl border border-border bg-card p-6 space-y-4">
           <div className="flex items-center gap-3">
-            <UserRound className="w-5 h-5 text-primary" />
+            <UserRound className="h-5 w-5 text-primary" />
             <div>
-              <h2 className="text-lg font-semibold text-foreground">À propos</h2>
-              <p className="text-sm text-muted-foreground">Identité visible dans l’application desktop.</p>
+              <h2 className="text-lg font-semibold text-foreground">A propos</h2>
+              <p className="text-sm text-muted-foreground">Identite visible dans l'application desktop.</p>
             </div>
           </div>
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid gap-4 md:grid-cols-2">
             <div className="rounded-xl border border-border bg-background/40 p-4">
-              <p className="text-xs font-bold tracking-widest uppercase text-muted-foreground mb-2">Développeur</p>
+              <p className="mb-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">Developpeur</p>
               <p className="text-lg font-semibold text-foreground">Abou Djafar</p>
+              <p className="mt-1 text-sm text-muted-foreground">djafar@crfc.cm</p>
             </div>
             <div className="rounded-xl border border-border bg-background/40 p-4">
-              <p className="text-xs font-bold tracking-widest uppercase text-muted-foreground mb-2">Produit</p>
-              <p className="text-lg font-semibold text-foreground">Alertes Tâches Desktop</p>
+              <p className="mb-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">Produit</p>
+              <p className="text-lg font-semibold text-foreground">Alertes Taches Desktop</p>
+              <p className="mt-1 text-sm text-muted-foreground">Version {packageInfo.version}</p>
             </div>
           </div>
         </section>
