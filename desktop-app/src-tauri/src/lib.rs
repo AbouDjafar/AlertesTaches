@@ -1352,7 +1352,7 @@ pub fn run() {
                 let data = read_app_data(&app.handle())?;
                 let alerts = build_active_alerts(&data.tasks);
                 if alerts.is_empty() {
-                    app.exit(0);
+                    app.handle().exit(0);
                     return Ok(());
                 }
 
