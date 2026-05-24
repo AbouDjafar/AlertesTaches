@@ -1208,6 +1208,8 @@ fn create_sticky_windows(app: &AppHandle, state: &RuntimeState, alerts: &[Alert]
             .visible(true)
             .always_on_top(true)
             .skip_taskbar(true)
+            .transparent(true)
+            .shadow(false)
             .inner_size(NOTE_WIDTH, NOTE_HEIGHT)
             .position(x, y)
             .build()

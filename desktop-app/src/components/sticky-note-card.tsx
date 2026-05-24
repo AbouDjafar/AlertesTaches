@@ -15,20 +15,22 @@ type StickyNoteCardProps = {
   onClose?: () => void;
   onCloseAll?: () => void;
   onMouseDown?: MouseEventHandler<HTMLElement>;
+  onMouseDownCapture?: MouseEventHandler<HTMLElement>;
   className?: string;
 };
 
-export function StickyNoteCard({ note, onClose, onCloseAll, onMouseDown, className = "" }: StickyNoteCardProps) {
+export function StickyNoteCard({ note, onClose, onCloseAll, onMouseDown, onMouseDownCapture, className = "" }: StickyNoteCardProps) {
   const theme = NOTE_THEME[note.color ?? "blue"] ?? NOTE_THEME.blue;
 
   return (
     <div
-      className={`flex w-full select-none flex-col overflow-hidden rounded-[24px] border shadow-2xl ${className}`.trim()}
+      className={`flex w-full cursor-grab select-none flex-col overflow-hidden rounded-[24px] border shadow-2xl active:cursor-grabbing ${className}`.trim()}
       style={{
         backgroundColor: theme.surface,
         borderColor: theme.border,
         boxShadow: "0 20px 45px rgba(20,31,46,0.20)",
       }}
+      onMouseDownCapture={onMouseDownCapture}
       onMouseDown={onMouseDown}
     >
       <div className="flex items-start gap-3 p-4">

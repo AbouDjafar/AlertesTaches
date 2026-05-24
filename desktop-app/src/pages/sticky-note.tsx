@@ -104,20 +104,15 @@ export default function StickyNoteWindow() {
   };
 
   if (!note) {
-    return (
-      <div className="h-full w-full overflow-hidden bg-transparent p-2">
-        <div className="flex h-full w-full items-center justify-center rounded-[24px] border border-slate-200 bg-slate-50/95 text-sm text-slate-700 shadow-2xl">
-          Chargement...
-        </div>
-      </div>
-    );
+    return <div className="h-full w-full overflow-hidden bg-transparent" />;
   }
 
   return (
-    <div className="h-full w-full overflow-hidden bg-transparent p-2">
+    <div className="h-full w-full overflow-hidden bg-transparent">
       <div ref={cardRef}>
         <StickyNoteCard
           note={note}
+          onMouseDownCapture={(event) => { void handleDragStart(event); }}
           onMouseDown={(event) => { void handleDragStart(event); }}
           onClose={() => { void closeCurrentStickyWindow(windowLabel); }}
           onCloseAll={note.showCloseAll ? () => { void closeAllStickyWindows(); } : undefined}
