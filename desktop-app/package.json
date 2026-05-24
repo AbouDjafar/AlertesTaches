@@ -1,7 +1,7 @@
 {
   "name": "alertes-taches-desktop",
   "private": true,
-  "version": "1.0.5",
+  "version": "1.0.6",
   "type": "module",
   "scripts": {
     "sync:version": "node ./scripts/sync-version.mjs",
