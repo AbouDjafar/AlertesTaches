@@ -1340,7 +1340,7 @@ pub fn run() {
             sticky_notes: Mutex::new(HashMap::new()),
             sticky_mode,
         })
-        .setup(|app| {
+        .setup(move |app| {
             let settings = load_settings_from_disk(&app.handle());
             store_settings_in_cache(&settings);
 
