@@ -1,5 +1,5 @@
 import { BellRing, X } from "lucide-react";
-import type { MouseEventHandler } from "react";
+import type { PointerEventHandler } from "react";
 import type { StickyNotePayload } from "@/lib/store";
 
 const NOTE_THEME: Record<string, { surface: string; border: string; accent: string; title: string; meta: string; badge: string }> = {
@@ -14,33 +14,46 @@ type StickyNoteCardProps = {
   note: StickyNotePayload;
   onClose?: () => void;
   onCloseAll?: () => void;
-  onMouseDown?: MouseEventHandler<HTMLDivElement>;
+  onPointerDown?: PointerEventHandler<HTMLDivElement>;
+  onPointerMove?: PointerEventHandler<HTMLDivElement>;
+  onPointerUp?: PointerEventHandler<HTMLDivElement>;
+  onPointerCancel?: PointerEventHandler<HTMLDivElement>;
   className?: string;
 };
 
-export function StickyNoteCard({ note, onClose, onCloseAll, onMouseDown, className = "" }: StickyNoteCardProps) {
+export function StickyNoteCard({
+  note,
+  onClose,
+  onCloseAll,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+  onPointerCancel,
+  className = "",
+}: StickyNoteCardProps) {
   const theme = NOTE_THEME[note.color ?? "blue"] ?? NOTE_THEME.blue;
 
   return (
     <div
-      className={`flex w-full cursor-grab select-none flex-col overflow-hidden rounded-[24px] border shadow-2xl active:cursor-grabbing ${className}`.trim()}
+      className={`flex w-full cursor-grab select-none flex-col overflow-hidden rounded-[24px] border shadow-2xl active:cursor-grabbing touch-none ${className}`.trim()}
       style={{
         backgroundColor: theme.surface,
         borderColor: theme.border,
         boxShadow: "0 20px 45px rgba(20,31,46,0.20)",
       }}
-      onMouseDown={onMouseDown}
-      data-tauri-drag-region="deep"
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerCancel}
     >
-      <div className="flex items-start gap-3 p-4" data-tauri-drag-region="deep">
+      <div className="flex items-start gap-3 p-4">
         <div
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl"
           style={{ backgroundColor: theme.border, color: theme.accent }}
-          data-tauri-drag-region="deep"
         >
           <BellRing className="h-5 w-5" />
         </div>
-        <div className="min-w-0 flex-1" data-tauri-drag-region="deep">
+        <div className="min-w-0 flex-1">
           <p className="text-[11px] font-bold uppercase tracking-[0.18em]" style={{ color: theme.badge }}>
             {note.label}
           </p>
@@ -54,33 +67,31 @@ export function StickyNoteCard({ note, onClose, onCloseAll, onMouseDown, classNa
             className="flex h-10 w-10 items-center justify-center rounded-xl border"
             style={{ borderColor: theme.border, color: theme.meta }}
             onClick={onClose}
-            data-tauri-drag-region="false"
           >
             <X className="h-4 w-4" />
           </button>
         )}
       </div>
 
-      <div className="flex flex-col gap-4 px-4 pb-4" data-tauri-drag-region="deep">
-        <div className="min-h-[88px] rounded-2xl border border-white/30 bg-white/40 p-4" data-tauri-drag-region="deep">
+      <div className="flex flex-col gap-4 px-4 pb-4">
+        <div className="min-h-[88px] rounded-2xl border border-white/30 bg-white/40 p-4">
           <p className="text-sm leading-6" style={{ color: theme.meta }}>
             {note.description}
           </p>
         </div>
 
-        <div className="grid gap-2 text-sm" style={{ color: theme.meta }} data-tauri-drag-region="deep">
+        <div className="grid gap-2 text-sm" style={{ color: theme.meta }}>
           <p><span className="font-semibold">Responsable :</span> {note.responsable}</p>
           <p><span className="font-semibold">Date de fin :</span> {note.dateFin}</p>
         </div>
 
         {note.showCloseAll && onCloseAll && (
-          <div className="flex justify-end pt-2" data-tauri-drag-region="deep">
+          <div className="flex justify-end pt-2">
             <button
               type="button"
               className="rounded-xl border px-4 py-2 text-sm font-semibold"
               style={{ borderColor: theme.border, color: theme.title }}
               onClick={onCloseAll}
-              data-tauri-drag-region="false"
             >
               Tout fermer
             </button>
