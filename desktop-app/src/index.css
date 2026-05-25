@@ -41,6 +41,15 @@ html {
   color-scheme: dark;
 }
 
+[data-tauri-drag-region] {
+  app-region: drag;
+}
+
+[data-tauri-drag-region="false"],
+[data-tauri-drag-region="false"] * {
+  app-region: no-drag;
+}
+
 @layer base {
   * {
     @apply border-border;

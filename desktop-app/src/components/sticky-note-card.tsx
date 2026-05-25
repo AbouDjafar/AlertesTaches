@@ -1,5 +1,5 @@
 import { BellRing, X } from "lucide-react";
-import type { PointerEventHandler } from "react";
+import type { Ref } from "react";
 import type { StickyNotePayload } from "@/lib/store";
 
 const NOTE_THEME: Record<string, { surface: string; border: string; accent: string; title: string; meta: string; badge: string }> = {
@@ -14,10 +14,7 @@ type StickyNoteCardProps = {
   note: StickyNotePayload;
   onClose?: () => void;
   onCloseAll?: () => void;
-  onPointerDown?: PointerEventHandler<HTMLDivElement>;
-  onPointerMove?: PointerEventHandler<HTMLDivElement>;
-  onPointerUp?: PointerEventHandler<HTMLDivElement>;
-  onPointerCancel?: PointerEventHandler<HTMLDivElement>;
+  cardRef?: Ref<HTMLDivElement>;
   className?: string;
 };
 
@@ -25,26 +22,21 @@ export function StickyNoteCard({
   note,
   onClose,
   onCloseAll,
-  onPointerDown,
-  onPointerMove,
-  onPointerUp,
-  onPointerCancel,
+  cardRef,
   className = "",
 }: StickyNoteCardProps) {
   const theme = NOTE_THEME[note.color ?? "blue"] ?? NOTE_THEME.blue;
 
   return (
     <div
-      className={`flex w-full cursor-grab select-none flex-col overflow-hidden rounded-[24px] border shadow-2xl active:cursor-grabbing touch-none ${className}`.trim()}
+      ref={cardRef}
+      data-tauri-drag-region="deep"
+      className={`flex w-full cursor-move select-none flex-col overflow-hidden rounded-[24px] border shadow-2xl ${className}`.trim()}
       style={{
         backgroundColor: theme.surface,
         borderColor: theme.border,
         boxShadow: "0 20px 45px rgba(20,31,46,0.20)",
       }}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerCancel={onPointerCancel}
     >
       <div className="flex items-start gap-3 p-4">
         <div
@@ -64,6 +56,7 @@ export function StickyNoteCard({
         {onClose && (
           <button
             type="button"
+            data-tauri-drag-region="false"
             className="flex h-10 w-10 items-center justify-center rounded-xl border"
             style={{ borderColor: theme.border, color: theme.meta }}
             onClick={onClose}
@@ -89,6 +82,7 @@ export function StickyNoteCard({
           <div className="flex justify-end pt-2">
             <button
               type="button"
+              data-tauri-drag-region="false"
               className="rounded-xl border px-4 py-2 text-sm font-semibold"
               style={{ borderColor: theme.border, color: theme.title }}
               onClick={onCloseAll}
