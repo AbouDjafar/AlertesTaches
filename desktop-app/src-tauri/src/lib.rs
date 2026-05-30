@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Mutex;
 use tauri::{
@@ -215,6 +215,21 @@ pub struct StickyNotePayload {
     pub show_close_all: bool,
     pub order: usize,
     pub window_height: f64,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CompilationDirectoryPreview {
+    folder_name: String,
+    file_count: usize,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CompilationDatasetPayload {
+    owner: String,
+    file_name: String,
+    tasks: Vec<Task>,
 }
 
 #[derive(Default)]
@@ -1258,6 +1273,49 @@ fn is_sticky_mode() -> bool {
     std::env::args().any(|argument| argument == "--sticky-notes")
 }
 
+fn is_compilation_json_file(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|value| value.to_str())
+        .map(|value| value.to_ascii_lowercase().ends_with("_planificateur_taches_gantt_alertes.json"))
+        .unwrap_or(false)
+}
+
+fn collect_compilation_json_files(directory: &Path) -> Result<Vec<PathBuf>, String> {
+    let mut files = Vec::new();
+
+    if !directory.exists() {
+        return Err("Le dossier selectionne est introuvable.".to_string());
+    }
+
+    let entries = fs::read_dir(directory)
+        .map_err(|error| format!("Unable to read selected directory: {}", error))?;
+
+    for entry in entries {
+        let entry = entry.map_err(|error| format!("Unable to inspect selected directory: {}", error))?;
+        let path = entry.path();
+        if path.is_dir() {
+            files.extend(collect_compilation_json_files(&path)?);
+        } else if is_compilation_json_file(&path) {
+            files.push(path);
+        }
+    }
+
+    Ok(files)
+}
+
+fn extract_compilation_owner(file_name: &str) -> String {
+    let cleaned = file_name
+        .trim_end_matches(".json")
+        .trim_end_matches("_planificateur_taches_gantt_alertes");
+    let normalized = cleaned.replace(['_', '-'], " ");
+    let normalized = normalized.trim();
+    if normalized.is_empty() {
+        "Utilisateur".to_string()
+    } else {
+        normalized.to_string()
+    }
+}
+
 #[tauri::command]
 fn load_tasks(app: AppHandle) -> Result<AppData, String> {
     read_app_data(&app)
@@ -1574,12 +1632,53 @@ fn finish_startup(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+fn preview_compilation_directory(directory_path: String) -> Result<CompilationDirectoryPreview, String> {
+    let directory = PathBuf::from(&directory_path);
+    let file_count = collect_compilation_json_files(&directory)?.len();
+    let folder_name = directory
+        .file_name()
+        .and_then(|value| value.to_str())
+        .map(|value| value.to_string())
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| directory_path.clone());
+
+    Ok(CompilationDirectoryPreview { folder_name, file_count })
+}
+
+#[tauri::command]
+fn load_compilation_directory(directory_path: String) -> Result<Vec<CompilationDatasetPayload>, String> {
+    let files = collect_compilation_json_files(Path::new(&directory_path))?;
+    let mut datasets = Vec::new();
+
+    for file_path in files {
+        let content = fs::read_to_string(&file_path)
+            .map_err(|error| format!("Unable to read compilation JSON '{}': {}", file_path.display(), error))?;
+        let tasks = import_tasks_from_json(&content)?;
+        let file_name = file_path
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or("planificateur_taches_gantt_alertes.json")
+            .to_string();
+
+        datasets.push(CompilationDatasetPayload {
+            owner: extract_compilation_owner(&file_name),
+            file_name,
+            tasks,
+        });
+    }
+
+    datasets.sort_by(|left, right| left.owner.to_lowercase().cmp(&right.owner.to_lowercase()));
+    Ok(datasets)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     register_panic_logger();
     let sticky_mode = is_sticky_mode();
 
     let builder = tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .manage(RuntimeState {
             sticky_notes: Mutex::new(HashMap::new()),
             sticky_mode,
@@ -1633,6 +1732,8 @@ pub fn run() {
             sync_to_phone,
             sync_from_phone,
             finish_startup,
+            preview_compilation_directory,
+            load_compilation_directory,
         ]);
 
     if let Err(error) = builder.run(tauri::generate_context!()) {

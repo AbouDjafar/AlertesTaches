@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { AppData, AppSettings, StickyNotePayload, Task } from "@/lib/store";
+import type { CompilationDataset } from "@/hooks/use-compilation";
 
 export async function loadAppData() {
   return invoke<AppData>("load_tasks");
@@ -59,4 +60,12 @@ export async function syncFromPhone() {
 
 export async function finishStartup() {
   return invoke("finish_startup");
+}
+
+export async function previewCompilationDirectory(directoryPath: string) {
+  return invoke<{ folderName: string; fileCount: number }>("preview_compilation_directory", { directoryPath });
+}
+
+export async function loadCompilationDirectory(directoryPath: string) {
+  return invoke<CompilationDataset[]>("load_compilation_directory", { directoryPath });
 }

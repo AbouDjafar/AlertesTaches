@@ -1,6 +1,6 @@
 [package]
 name = "alertes-taches"
-version = "1.1.11"
+version = "1.1.12"
 description = "Alertes Taches - Gestionnaire de planificateur de taches"
 authors = ["AbouDjafar"]
 edition = "2021"
@@ -15,6 +15,7 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 chrono = { version = "0.4", features = ["serde"] }

@@ -1,5 +1,5 @@
-import { useMemo, useRef, useState } from "react";
-import { BarChart3, Download, FileSpreadsheet, FolderUp, PieChart as PieChartIcon } from "lucide-react";
+import { useMemo, useState } from "react";
+import { BarChart3, Download, FolderUp, PieChart as PieChartIcon } from "lucide-react";
 import {
   Bar,
   BarChart,
@@ -15,11 +15,22 @@ import {
 } from "recharts";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useCompilation, type CompilationDataset } from "@/hooks/use-compilation";
 import { useToast } from "@/hooks/use-toast";
-import { importJsonContent, saveExportFile } from "@/lib/backend";
+import { loadCompilationDirectory, previewCompilationDirectory, saveExportFile } from "@/lib/backend";
 import { exportCompiledWorkbook } from "@/lib/excel";
 import { getAlertLevel, getTaskStatusText, isTaskCompleted } from "@/lib/store";
+import { open } from "@tauri-apps/plugin-dialog";
 
 type DatasetSummary = {
   owner: string;
@@ -39,12 +50,6 @@ const TOOLTIP_STYLE = {
   color: "#F8FAFC",
 };
 
-function extractOwnerLabel(fileName: string) {
-  const baseName = fileName.split(/[\\/]/).pop() ?? fileName;
-  const cleaned = baseName.replace(/_planificateur_taches_gantt_alertes\.json$/i, "");
-  return cleaned.replace(/[_-]+/g, " ").trim() || "Utilisateur";
-}
-
 function safeRatio(value: number, total: number) {
   if (total <= 0) {
     return 0;
@@ -54,10 +59,10 @@ function safeRatio(value: number, total: number) {
 
 export default function Compilation() {
   const { toast } = useToast();
-  const directoryInputRef = useRef<HTMLInputElement>(null);
   const { datasets, setDatasets } = useCompilation();
   const [isCompiling, setIsCompiling] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [pendingDirectory, setPendingDirectory] = useState<{ path: string; folderName: string; fileCount: number } | null>(null);
 
   const summaries = useMemo<DatasetSummary[]>(() => {
     const today = new Date();
@@ -137,37 +142,58 @@ export default function Compilation() {
     "A demarrer": summary.notStarted,
   })), [summaries]);
 
-  const loadCompilationFiles = async (files: FileList | null) => {
-    if (!files || files.length === 0) {
+  const handlePickDirectory = async () => {
+    try {
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        title: "Selectionner le dossier de compilation",
+      });
+
+      if (!selected || Array.isArray(selected)) {
+        return;
+      }
+
+      const preview = await previewCompilationDirectory(selected);
+      if (preview.fileCount <= 0) {
+        toast({
+          title: "Aucun fichier compatible",
+          description: "Aucun fichier *_planificateur_taches_gantt_alertes.json n'a ete trouve dans ce dossier.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setPendingDirectory({
+        path: selected,
+        folderName: preview.folderName,
+        fileCount: preview.fileCount,
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Selection impossible",
+        description: String(error),
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleConfirmDirectoryLoad = async () => {
+    if (!pendingDirectory) {
       return;
     }
 
     setIsCompiling(true);
     try {
-      const nextDatasets: CompilationDataset[] = [];
-      let skipped = 0;
-
-      for (const file of Array.from(files)) {
-        if (!/_planificateur_taches_gantt_alertes\.json$/i.test(file.name)) {
-          skipped += 1;
-          continue;
-        }
-
-        const content = await file.text();
-        const tasks = await importJsonContent(content);
-        nextDatasets.push({
-          owner: extractOwnerLabel((file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name),
-          fileName: file.name,
-          tasks,
-        });
-      }
-
+      const nextDatasets = await loadCompilationDirectory(pendingDirectory.path);
       nextDatasets.sort((left, right) => left.owner.localeCompare(right.owner, "fr", { sensitivity: "base" }));
       setDatasets(nextDatasets);
+      setPendingDirectory(null);
 
       toast({
         title: "Compilation prete",
-        description: `${nextDatasets.length} source(s) chargee(s)${skipped > 0 ? `, ${skipped} fichier(s) ignore(s)` : ""}.`,
+        description: `${nextDatasets.length} source(s) chargee(s).`,
       });
     } catch (error) {
       console.error(error);
@@ -234,19 +260,7 @@ export default function Compilation() {
           </div>
 
           <div className="flex flex-wrap gap-3">
-            <input
-              ref={directoryInputRef}
-              type="file"
-              accept=".json,application/json"
-              multiple
-              className="hidden"
-              onChange={(event) => {
-                void loadCompilationFiles(event.target.files);
-                event.currentTarget.value = "";
-              }}
-              {...({ webkitdirectory: "", directory: "" } as unknown as Record<string, string>)}
-            />
-            <Button onClick={() => directoryInputRef.current?.click()} disabled={isCompiling} className="gap-2">
+            <Button onClick={() => { void handlePickDirectory(); }} disabled={isCompiling} className="gap-2">
               <FolderUp className="h-4 w-4" />
               {isCompiling ? "Analyse..." : "Charger un dossier JSON"}
             </Button>
@@ -414,6 +428,28 @@ export default function Compilation() {
           </div>
         </section>
       </div>
+      <AlertDialog open={pendingDirectory !== null} onOpenChange={(openState) => {
+        if (!openState) {
+          setPendingDirectory(null);
+        }
+      }}>
+        <AlertDialogContent className="max-w-md border-border bg-card">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmer la compilation</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingDirectory
+                ? `Voulez vous charger ces ${pendingDirectory.fileCount} fichiers a partir de ${pendingDirectory.folderName} afin de compiler les donnees ?`
+                : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { void handleConfirmDirectoryLoad(); }}>
+              Charger
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </ScrollArea>
   );
 }

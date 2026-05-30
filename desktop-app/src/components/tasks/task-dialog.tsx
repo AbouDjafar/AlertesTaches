@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -135,15 +135,18 @@ export function TaskDialog({ open, onOpenChange, task, onSave, taskCount }: Task
     setStep((current) => Math.max(current - 1, 0) as TaskStep);
   };
 
-  const handleFormSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
+  const handleFinalSubmit = async () => {
     if (step < 2) {
-      await handleNext();
       return;
     }
 
-    await form.handleSubmit(onSubmit)(event);
+    const isValid = await form.trigger();
+    if (!isValid) {
+      return;
+    }
+
+    const values = form.getValues();
+    onSubmit(values);
   };
 
   const onSubmit = (values: TaskForm) => {
@@ -204,9 +207,8 @@ export function TaskDialog({ open, onOpenChange, task, onSave, taskCount }: Task
 
         <Form {...form}>
           <form
-            onSubmit={(event) => { void handleFormSubmit(event); }}
             onKeyDown={(event) => {
-              if (event.key !== "Enter" || step >= 2) {
+              if (event.key !== "Enter") {
                 return;
               }
 
@@ -456,7 +458,7 @@ export function TaskDialog({ open, onOpenChange, task, onSave, taskCount }: Task
                 <>
                   <Button type="button" variant="outline" onClick={handlePrevious}>Precedent</Button>
                   <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Annuler</Button>
-                  <Button type="submit" data-testid="button-save-task">{task ? "Enregistrer" : "Enregistrer"}</Button>
+                  <Button type="button" onClick={() => { void handleFinalSubmit(); }} data-testid="button-save-task">{task ? "Enregistrer" : "Enregistrer"}</Button>
                 </>
               )}
             </DialogFooter>
