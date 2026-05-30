@@ -56,3 +56,7 @@ export async function syncToPhone() {
 export async function syncFromPhone() {
   return invoke<AppData>("sync_from_phone");
 }
+
+export async function finishStartup() {
+  return invoke("finish_startup");
+}

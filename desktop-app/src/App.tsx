@@ -12,7 +12,11 @@ import Compilation from "./pages/compilation";
 import ImportExport from "./pages/import-export";
 import Settings from "./pages/settings";
 import StickyNoteWindow from "./pages/sticky-note";
+import SplashScreen from "./pages/splash";
+import { finishStartup } from "./lib/backend";
+import { CompilationProvider } from "./hooks/use-compilation";
 import { TasksProvider } from "./hooks/use-tasks";
+import { useTasks } from "./hooks/use-tasks";
 
 function Router() {
   return (
@@ -42,17 +46,41 @@ function App() {
 
   return (
     <TooltipProvider>
-      {windowLabel === null ? null : windowLabel.startsWith("sticky-note-") ? (
+      {windowLabel === null ? null : windowLabel === "splash" ? (
+        <SplashScreen />
+      ) : windowLabel.startsWith("sticky-note-") ? (
         <StickyNoteWindow />
       ) : (
         <TasksProvider>
-          <WouterRouter>
-            <Router />
-          </WouterRouter>
+          <CompilationProvider>
+            <AppWorkspace />
+          </CompilationProvider>
         </TasksProvider>
       )}
       <Toaster />
     </TooltipProvider>
+  );
+}
+
+function AppWorkspace() {
+  const { isLoading } = useTasks();
+  const [startupReleased, setStartupReleased] = useState(false);
+
+  useEffect(() => {
+    if (startupReleased || isLoading) {
+      return;
+    }
+
+    setStartupReleased(true);
+    void finishStartup().catch((error) => {
+      console.error("Unable to finish desktop startup", error);
+    });
+  }, [isLoading, startupReleased]);
+
+  return (
+    <WouterRouter>
+      <Router />
+    </WouterRouter>
   );
 }
 

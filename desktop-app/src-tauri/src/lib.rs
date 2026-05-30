@@ -16,12 +16,15 @@ const LOG_FILE_NAME: &str = "alertes-taches-log.txt";
 const SETTINGS_FILE_NAME: &str = "alertes_taches_settings.json";
 const PYTHON_JSON_FILE_NAME: &str = "planificateur_taches_gantt_alertes.json";
 const STARTUP_SHORTCUT_NAME: &str = "LANCER_ALERTES_DESKTOP.lnk";
+const SPLASH_WINDOW_LABEL: &str = "splash";
 const NOTE_WIDTH: f64 = 360.0;
 const NOTE_HEIGHT: f64 = 250.0;
 const NOTE_MIN_HEIGHT: f64 = 220.0;
 const NOTE_MARGIN: f64 = 28.0;
 const NOTE_OFFSET_Y: f64 = 34.0;
 const NOTE_OFFSET_X: f64 = 46.0;
+const SPLASH_WIDTH: f64 = 540.0;
+const SPLASH_HEIGHT: f64 = 360.0;
 
 static LOG_FILE_PATH: Mutex<Option<PathBuf>> = Mutex::new(None);
 static SETTINGS_CACHE: Mutex<AppSettings> = Mutex::new(AppSettings {
@@ -1225,6 +1228,32 @@ fn create_sticky_windows(app: &AppHandle, state: &RuntimeState, alerts: &[Alert]
     Ok(alerts.len())
 }
 
+fn create_splash_window(app: &AppHandle) -> Result<(), String> {
+    if app.get_webview_window(SPLASH_WINDOW_LABEL).is_some() {
+        return Ok(());
+    }
+
+    WebviewWindowBuilder::new(app, SPLASH_WINDOW_LABEL, WebviewUrl::App("index.html".into()))
+        .title("Alertes Taches")
+        .decorations(false)
+        .resizable(false)
+        .maximizable(false)
+        .minimizable(false)
+        .closable(false)
+        .skip_taskbar(true)
+        .center()
+        .inner_size(SPLASH_WIDTH, SPLASH_HEIGHT)
+        .build()
+        .map_err(|error| format!("Unable to create splash window: {}", error))?;
+
+    if let Some(window) = app.get_webview_window(SPLASH_WINDOW_LABEL) {
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+
+    Ok(())
+}
+
 fn is_sticky_mode() -> bool {
     std::env::args().any(|argument| argument == "--sticky-notes")
 }
@@ -1528,6 +1557,23 @@ fn sync_from_phone(app: AppHandle) -> Result<AppData, String> {
     Ok(data)
 }
 
+#[tauri::command]
+fn finish_startup(app: AppHandle) -> Result<(), String> {
+    if let Some(splash_window) = app.get_webview_window(SPLASH_WINDOW_LABEL) {
+        let _ = splash_window.close();
+    }
+
+    if let Some(main_window) = app.get_webview_window("main") {
+        main_window
+            .show()
+            .map_err(|error| format!("Unable to show main window: {}", error))?;
+        let _ = main_window.set_focus();
+    }
+
+    let _ = append_app_log("INFO", "backend", "Desktop startup completed");
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     register_panic_logger();
@@ -1556,6 +1602,11 @@ pub fn run() {
 
                 let state: State<'_, RuntimeState> = app.state();
                 create_sticky_windows(&app.handle(), &state, &alerts)?;
+            } else {
+                if let Some(main_window) = app.get_webview_window("main") {
+                    let _ = main_window.hide();
+                }
+                create_splash_window(&app.handle())?;
             }
 
             Ok(())
@@ -1581,6 +1632,7 @@ pub fn run() {
             close_all_sticky_windows,
             sync_to_phone,
             sync_from_phone,
+            finish_startup,
         ]);
 
     if let Err(error) = builder.run(tauri::generate_context!()) {

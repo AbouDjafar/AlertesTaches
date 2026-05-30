@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -135,6 +135,17 @@ export function TaskDialog({ open, onOpenChange, task, onSave, taskCount }: Task
     setStep((current) => Math.max(current - 1, 0) as TaskStep);
   };
 
+  const handleFormSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (step < 2) {
+      await handleNext();
+      return;
+    }
+
+    await form.handleSubmit(onSubmit)(event);
+  };
+
   const onSubmit = (values: TaskForm) => {
     let duree = values.duree;
     if (!duree && values.dateDebut && values.dateFin) {
@@ -192,7 +203,22 @@ export function TaskDialog({ open, onOpenChange, task, onSave, taskCount }: Task
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
+          <form
+            onSubmit={(event) => { void handleFormSubmit(event); }}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter" || step >= 2) {
+                return;
+              }
+
+              const target = event.target as HTMLElement;
+              if (target instanceof HTMLTextAreaElement || target.closest("button")) {
+                return;
+              }
+
+              event.preventDefault();
+            }}
+            className="flex min-h-0 flex-1 flex-col"
+          >
             <div className="min-h-0 flex-1 overflow-y-hidden px-6 pr-3 hover:overflow-y-auto">
               {step === 0 && (
                 <div className="space-y-4 pb-6">

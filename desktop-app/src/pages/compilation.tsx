@@ -15,14 +15,11 @@ import {
 } from "recharts";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useCompilation, type CompilationDataset } from "@/hooks/use-compilation";
 import { useToast } from "@/hooks/use-toast";
 import { importJsonContent, saveExportFile } from "@/lib/backend";
-import { exportCompiledWorkbook, type CompiledOwnerDataset } from "@/lib/excel";
+import { exportCompiledWorkbook } from "@/lib/excel";
 import { getAlertLevel, getTaskStatusText, isTaskCompleted } from "@/lib/store";
-
-type CompilationDataset = CompiledOwnerDataset & {
-  fileName: string;
-};
 
 type DatasetSummary = {
   owner: string;
@@ -58,7 +55,7 @@ function safeRatio(value: number, total: number) {
 export default function Compilation() {
   const { toast } = useToast();
   const directoryInputRef = useRef<HTMLInputElement>(null);
-  const [datasets, setDatasets] = useState<CompilationDataset[]>([]);
+  const { datasets, setDatasets } = useCompilation();
   const [isCompiling, setIsCompiling] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
