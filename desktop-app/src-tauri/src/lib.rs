@@ -1248,7 +1248,11 @@ fn create_splash_window(app: &AppHandle) -> Result<(), String> {
         return Ok(());
     }
 
-    WebviewWindowBuilder::new(app, SPLASH_WINDOW_LABEL, WebviewUrl::App("index.html".into()))
+    WebviewWindowBuilder::new(
+        app,
+        SPLASH_WINDOW_LABEL,
+        WebviewUrl::App("splashscreen.html".into()),
+    )
         .title("Alertes Taches")
         .decorations(false)
         .resizable(false)
@@ -1616,7 +1620,20 @@ fn sync_from_phone(app: AppHandle) -> Result<AppData, String> {
 }
 
 #[tauri::command]
-fn finish_startup(app: AppHandle) -> Result<(), String> {
+fn finish_startup(app: AppHandle, state: State<'_, RuntimeState>) -> Result<(), String> {
+    if state.sticky_mode {
+        if let Some(main_window) = app.get_webview_window("main") {
+            let _ = main_window.hide();
+            let _ = main_window.close();
+        }
+        let _ = append_app_log(
+            "INFO",
+            "backend",
+            "Ignored main window startup release while sticky-note mode is active",
+        );
+        return Ok(());
+    }
+
     if let Some(splash_window) = app.get_webview_window(SPLASH_WINDOW_LABEL) {
         let _ = splash_window.close();
     }
@@ -1701,6 +1718,11 @@ pub fn run() {
 
                 let state: State<'_, RuntimeState> = app.state();
                 create_sticky_windows(&app.handle(), &state, &alerts)?;
+
+                if let Some(main_window) = app.get_webview_window("main") {
+                    let _ = main_window.hide();
+                    let _ = main_window.close();
+                }
             } else {
                 if let Some(main_window) = app.get_webview_window("main") {
                     let _ = main_window.hide();
