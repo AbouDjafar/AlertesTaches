@@ -29,7 +29,7 @@ import { useCompilation, type CompilationDataset } from "@/hooks/use-compilation
 import { useToast } from "@/hooks/use-toast";
 import { loadCompilationDirectory, previewCompilationDirectory, saveExportFile } from "@/lib/backend";
 import { exportCompiledWorkbook } from "@/lib/excel";
-import { getAlertLevel, getTaskStatusText, isTaskCompleted } from "@/lib/store";
+import { getAlertLevel, getTaskStatusText, isTaskCompleted, normalizePriority } from "@/lib/store";
 import { open } from "@tauri-apps/plugin-dialog";
 
 type DatasetSummary = {
@@ -120,7 +120,7 @@ export default function Compilation() {
     const priorityTotals = new Map<string, number>();
     datasets.forEach(({ tasks }) => {
       tasks.forEach((task) => {
-        const key = task.priorite?.trim() || "Non renseignee";
+        const key = normalizePriority(task.priorite?.trim()) || "Non renseignee";
         priorityTotals.set(key, (priorityTotals.get(key) ?? 0) + 1);
       });
     });

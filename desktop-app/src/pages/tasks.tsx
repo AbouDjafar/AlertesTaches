@@ -1,24 +1,29 @@
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { differenceInDays } from "date-fns";
 import { parseISO } from "date-fns/parseISO";
 import { Plus, Pencil, Trash2, Search, ChevronDown, ChevronUp, ListTodo } from "lucide-react";
 import { useTasks } from "@/hooks/use-tasks";
-import { Task, getAlertLevel, isTaskCompleted } from "@/lib/store";
+import { Task, getAlertLevel, getPriorityRank, isTaskCompleted, normalizePriority } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TaskDialog } from "@/components/tasks/task-dialog";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel,
-  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
-  AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
 type SortField = "numero" | "tache" | "responsable" | "dateFin" | "priorite" | "etatAvancement";
 
-const PRIORITY_ORDER: Record<string, number> = { "Élevé": 0, "Moyen": 1, "Faible": 2 };
 const STATUS_COLORS: Record<string, string> = {
   "Terminé": "bg-green-500/15 text-green-400 border-green-500/30",
   "En cours": "bg-yellow-500/15 text-yellow-400 border-yellow-500/30",
@@ -48,159 +53,198 @@ export default function Tasks() {
   const today = new Date();
 
   const filtered = useMemo(() => {
-    let result = tasks.filter(t =>
-      [t.tache, t.activite, t.responsable, t.description].join(" ").toLowerCase().includes(search.toLowerCase())
+    let result = tasks.filter((task) =>
+      [task.tache, task.activite, task.responsable, task.description].join(" ").toLowerCase().includes(search.toLowerCase()),
     );
+
     if (statusFilter !== "all") {
-      result = result.filter(t => t.etatAvancement === statusFilter);
+      result = result.filter((task) => task.etatAvancement === statusFilter);
     }
-    result = [...result].sort((a, b) => {
-      let av: string | number = a[sortField] ?? "";
-      let bv: string | number = b[sortField] ?? "";
-      if (sortField === "priorite") { av = PRIORITY_ORDER[a.priorite] ?? 99; bv = PRIORITY_ORDER[b.priorite] ?? 99; }
-      if (sortField === "numero") { av = Number(a.numero); bv = Number(b.numero); }
-      if (av < bv) return sortAsc ? -1 : 1;
-      if (av > bv) return sortAsc ? 1 : -1;
+
+    result = [...result].sort((left, right) => {
+      let leftValue: string | number = left[sortField] ?? "";
+      let rightValue: string | number = right[sortField] ?? "";
+
+      if (sortField === "priorite") {
+        leftValue = getPriorityRank(left.priorite);
+        rightValue = getPriorityRank(right.priorite);
+      }
+      if (sortField === "numero") {
+        leftValue = Number(left.numero);
+        rightValue = Number(right.numero);
+      }
+
+      if (leftValue < rightValue) return sortAsc ? -1 : 1;
+      if (leftValue > rightValue) return sortAsc ? 1 : -1;
       return 0;
     });
+
     return result;
   }, [tasks, search, sortField, sortAsc, statusFilter]);
 
   const toggleSort = (field: SortField) => {
-    if (sortField === field) setSortAsc(p => !p);
-    else { setSortField(field); setSortAsc(true); }
+    if (sortField === field) {
+      setSortAsc((previous) => !previous);
+    } else {
+      setSortField(field);
+      setSortAsc(true);
+    }
   };
 
   const SortIcon = ({ field }: { field: SortField }) => {
-    if (sortField !== field) return <ChevronDown className="w-3 h-3 opacity-30" />;
-    return sortAsc ? <ChevronUp className="w-3 h-3 text-primary" /> : <ChevronDown className="w-3 h-3 text-primary" />;
+    if (sortField !== field) {
+      return <ChevronDown className="h-3 w-3 opacity-30" />;
+    }
+    return sortAsc ? <ChevronUp className="h-3 w-3 text-primary" /> : <ChevronDown className="h-3 w-3 text-primary" />;
   };
 
-  const openNew = () => { setEditTask(null); setDialogOpen(true); };
-  const openEdit = (t: Task) => { setEditTask(t); setDialogOpen(true); };
-  const handleSave = (t: Task) => { if (editTask) updateTask(t); else addTask(t); setDialogOpen(false); };
+  const openNew = () => {
+    setEditTask(null);
+    setDialogOpen(true);
+  };
+
+  const openEdit = (task: Task) => {
+    setEditTask(task);
+    setDialogOpen(true);
+  };
+
+  const handleSave = (task: Task) => {
+    if (editTask) {
+      updateTask(task);
+    } else {
+      addTask(task);
+    }
+    setDialogOpen(false);
+  };
 
   const getUrgency = (task: Task) => {
     if (!task.dateFin || isTaskCompleted(task)) return null;
-    const d = differenceInDays(parseISO(task.dateFin), today);
-    return getAlertLevel(d);
+    const days = differenceInDays(parseISO(task.dateFin), today);
+    return getAlertLevel(days);
   };
 
   const statuses = ["all", "En cours", "Non démarré", "Terminé"];
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="px-8 pt-8 pb-4 border-b border-border">
-        <div className="flex items-end justify-between mb-4">
+    <div className="flex h-full flex-col">
+      <div className="border-b border-border px-8 pb-4 pt-8">
+        <div className="mb-4 flex items-end justify-between">
           <div>
-            <p className="text-xs font-bold tracking-widest text-muted-foreground uppercase mb-1">Gestion</p>
-            <h1 className="text-3xl font-bold text-foreground tracking-tight">Tâches</h1>
+            <p className="mb-1 text-xs font-bold uppercase tracking-widest text-muted-foreground">Gestion</p>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">Tâches</h1>
           </div>
           <Button onClick={openNew} className="gap-2" data-testid="button-add-task">
-            <Plus className="w-4 h-4" />
+            <Plus className="h-4 w-4" />
             Nouvelle tâche
           </Button>
         </div>
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="relative flex-1 min-w-[200px] max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative max-w-sm min-w-[200px] flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Rechercher..."
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={(event) => setSearch(event.target.value)}
               className="pl-9"
               data-testid="input-search-tasks"
             />
           </div>
           <div className="flex gap-1.5">
-            {statuses.map(s => (
+            {statuses.map((status) => (
               <button
-                key={s}
-                onClick={() => setStatusFilter(s)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${statusFilter === s ? "bg-primary text-primary-foreground" : "bg-card border border-border text-muted-foreground hover:text-foreground"}`}
-                data-testid={`filter-status-${s}`}
+                key={status}
+                onClick={() => setStatusFilter(status)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${statusFilter === status ? "bg-primary text-primary-foreground" : "border border-border bg-card text-muted-foreground hover:text-foreground"}`}
+                data-testid={`filter-status-${status}`}
               >
-                {s === "all" ? "Tous" : s}
+                {status === "all" ? "Tous" : status}
               </button>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Table */}
       <ScrollArea className="flex-1">
         <div className="px-8 py-4">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border">
                 {[
-                  { field: "numero" as SortField, label: "N°", w: "w-12" },
-                  { field: "tache" as SortField, label: "Tâche", w: "" },
-                  { field: "responsable" as SortField, label: "Responsable", w: "w-36" },
-                  { field: "dateFin" as SortField, label: "Échéance", w: "w-28" },
-                  { field: "priorite" as SortField, label: "Priorité", w: "w-24" },
-                  { field: "etatAvancement" as SortField, label: "État", w: "w-36" },
-                ].map(col => (
+                  { field: "numero" as SortField, label: "N°", width: "w-12" },
+                  { field: "tache" as SortField, label: "Tâche", width: "" },
+                  { field: "responsable" as SortField, label: "Responsable", width: "w-36" },
+                  { field: "dateFin" as SortField, label: "Échéance", width: "w-28" },
+                  { field: "priorite" as SortField, label: "Priorité", width: "w-24" },
+                  { field: "etatAvancement" as SortField, label: "État", width: "w-36" },
+                ].map((column) => (
                   <th
-                    key={col.field}
-                    className={`text-left py-3 px-2 text-xs font-bold text-muted-foreground uppercase tracking-wider cursor-pointer select-none hover:text-foreground ${col.w}`}
-                    onClick={() => toggleSort(col.field)}
+                    key={column.field}
+                    className={`cursor-pointer select-none px-2 py-3 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground ${column.width}`}
+                    onClick={() => toggleSort(column.field)}
                   >
-                    <span className="flex items-center gap-1">{col.label}<SortIcon field={col.field} /></span>
+                    <span className="flex items-center gap-1">
+                      {column.label}
+                      <SortIcon field={column.field} />
+                    </span>
                   </th>
                 ))}
-                <th className="w-20 py-3 px-2" />
+                <th className="w-20 px-2 py-3" />
               </tr>
             </thead>
             <tbody>
               <AnimatePresence>
-                {filtered.map((task, i) => {
+                {filtered.map((task, index) => {
                   const urgency = getUrgency(task);
+                  const normalizedPriority = normalizePriority(task.priorite);
+
                   return (
                     <motion.tr
                       key={task.id}
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -8 }}
-                      transition={{ delay: i * 0.02, type: "spring", stiffness: 300, damping: 25 }}
-                      className="border-b border-border/50 hover:bg-card/80 cursor-pointer group transition-colors"
+                      transition={{ delay: index * 0.02, type: "spring", stiffness: 300, damping: 25 }}
+                      className="group cursor-pointer border-b border-border/50 transition-colors hover:bg-card/80"
                       onClick={() => openEdit(task)}
                       data-testid={`row-task-${task.id}`}
                     >
-                      <td className="py-3 px-2 text-muted-foreground font-mono text-xs">{task.numero}</td>
-                      <td className="py-3 px-2">
+                      <td className="px-2 py-3 font-mono text-xs text-muted-foreground">{task.numero}</td>
+                      <td className="px-2 py-3">
                         <div className="flex items-center gap-2">
-                          {urgency && <div className={`w-2 h-2 rounded-full shrink-0 ${URGENCY_DOT[urgency.color]}`} />}
+                          {urgency && <div className={`h-2 w-2 shrink-0 rounded-full ${URGENCY_DOT[urgency.color]}`} />}
                           <div>
-                            <p className="font-semibold text-foreground leading-tight">{task.tache}</p>
-                            {task.activite && <p className="text-xs text-muted-foreground mt-0.5">{task.activite}</p>}
+                            <p className="leading-tight text-foreground font-semibold">{task.tache}</p>
+                            {task.activite && <p className="mt-0.5 text-xs text-muted-foreground">{task.activite}</p>}
                           </div>
                         </div>
                       </td>
-                      <td className="py-3 px-2 text-muted-foreground text-xs">{task.responsable || "—"}</td>
-                      <td className="py-3 px-2 text-xs font-mono text-muted-foreground">{task.dateFin || "—"}</td>
-                      <td className="py-3 px-2">
-                        {task.priorite && (
-                          <Badge variant="outline" className={`text-xs ${PRIORITY_COLORS[task.priorite] ?? ""}`}>{task.priorite}</Badge>
+                      <td className="px-2 py-3 text-xs text-muted-foreground">{task.responsable || "—"}</td>
+                      <td className="px-2 py-3 font-mono text-xs text-muted-foreground">{task.dateFin || "—"}</td>
+                      <td className="px-2 py-3">
+                        {normalizedPriority && (
+                          <Badge variant="outline" className={`text-xs ${PRIORITY_COLORS[normalizedPriority] ?? ""}`}>
+                            {normalizedPriority}
+                          </Badge>
                         )}
                       </td>
-                      <td className="py-3 px-2">
-                        <Badge variant="outline" className={`text-xs ${STATUS_COLORS[task.etatAvancement] ?? ""}`}>{task.etatAvancement}</Badge>
+                      <td className="px-2 py-3">
+                        <Badge variant="outline" className={`text-xs ${STATUS_COLORS[task.etatAvancement] ?? ""}`}>
+                          {task.etatAvancement}
+                        </Badge>
                       </td>
-                      <td className="py-3 px-2">
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+                      <td className="px-2 py-3">
+                        <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100" onClick={(event) => event.stopPropagation()}>
                           <button
                             onClick={() => openEdit(task)}
-                            className="p-1.5 hover:bg-white/5 rounded-lg text-muted-foreground hover:text-foreground transition-colors"
+                            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground"
                             data-testid={`button-edit-task-${task.id}`}
                           >
-                            <Pencil className="w-3.5 h-3.5" />
+                            <Pencil className="h-3.5 w-3.5" />
                           </button>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
-                              <button className="p-1.5 hover:bg-rose-500/10 rounded-lg text-muted-foreground hover:text-rose-400 transition-colors" data-testid={`button-delete-task-${task.id}`}>
-                                <Trash2 className="w-3.5 h-3.5" />
+                              <button className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-rose-500/10 hover:text-rose-400" data-testid={`button-delete-task-${task.id}`}>
+                                <Trash2 className="h-3.5 w-3.5" />
                               </button>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
@@ -212,7 +256,9 @@ export default function Tasks() {
                               </AlertDialogHeader>
                               <AlertDialogFooter>
                                 <AlertDialogCancel>Annuler</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => deleteTask(task.id)} className="bg-rose-500 hover:bg-rose-600">Supprimer</AlertDialogAction>
+                                <AlertDialogAction onClick={() => deleteTask(task.id)} className="bg-rose-500 hover:bg-rose-600">
+                                  Supprimer
+                                </AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>
                           </AlertDialog>
@@ -224,9 +270,10 @@ export default function Tasks() {
               </AnimatePresence>
             </tbody>
           </table>
+
           {filtered.length === 0 && (
-            <div className="text-center py-16 text-muted-foreground">
-              <ListTodo className="w-10 h-10 mx-auto mb-3 opacity-30" />
+            <div className="py-16 text-center text-muted-foreground">
+              <ListTodo className="mx-auto mb-3 h-10 w-10 opacity-30" />
               <p className="text-sm">Aucune tâche trouvée</p>
             </div>
           )}

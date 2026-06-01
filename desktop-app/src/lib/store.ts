@@ -54,6 +54,16 @@ function safeText(value: unknown, fallback = "") {
   return String(value);
 }
 
+function slugText(value: unknown) {
+  return safeText(value)
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[’'\u0060\u00B4]/g, "")
+    .replace(/[^a-zA-Z]+/g, "")
+    .toLowerCase();
+}
+
 function safePositiveNumber(value: unknown, fallback: number) {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : fallback;
 }
@@ -68,6 +78,39 @@ function computeDuration(dateDebut: string, dateFin: string, fallback: number) {
   } catch {
     return fallback;
   }
+}
+
+export function normalizePriority(value: unknown) {
+  const text = safeText(value).trim();
+  const slug = slugText(value);
+
+  if (slug.startsWith("elev")) {
+    return "Élevé";
+  }
+  if (slug.startsWith("moy")) {
+    return "Moyen";
+  }
+  if (slug.startsWith("faib")) {
+    return "Faible";
+  }
+
+  return text;
+}
+
+export function getPriorityRank(value: unknown) {
+  const normalized = normalizePriority(value);
+
+  if (normalized === "Élevé") {
+    return 0;
+  }
+  if (normalized === "Moyen") {
+    return 1;
+  }
+  if (normalized === "Faible") {
+    return 2;
+  }
+
+  return 99;
 }
 
 export function normalizeTask(task: Partial<Task>, index = 0): Task {
@@ -89,7 +132,7 @@ export function normalizeTask(task: Partial<Task>, index = 0): Task {
     dateDebut,
     dateFin,
     duree: computeDuration(dateDebut, dateFin, fallbackDuration),
-    priorite: safeText(task.priorite),
+    priorite: normalizePriority(task.priorite),
     etatAvancement: safeText(task.etatAvancement, "Non démarré") || "Non démarré",
     extrantsObtenus: safeText(task.extrantsObtenus),
     livrablesFournis: safeText(task.livrablesFournis),
