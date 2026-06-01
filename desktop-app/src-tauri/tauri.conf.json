@@ -1,6 +1,6 @@
 {
   "productName": "Alertes Taches",
-  "version": "1.1.18",
+  "version": "1.1.19",
   "identifier": "fr.djafar.alertes-taches",
   "build": {
     "frontendDist": "../dist",

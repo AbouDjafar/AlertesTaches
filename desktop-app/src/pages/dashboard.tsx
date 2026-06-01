@@ -164,6 +164,7 @@ export default function Dashboard() {
     green: "text-emerald-400",
   };
   const barColor = (entry: { done: boolean }) => entry.done ? "#4ADE80" : "#D84A3A";
+  const timelineHeight = Math.max(320, timeline.items.length * 26);
 
   return (
     <ScrollArea className="h-full">
@@ -207,8 +208,8 @@ export default function Dashboard() {
                 Aucune tâche avec dates
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height={320}>
-                <BarChart data={timeline.items} layout="vertical" margin={{ top: 20, right: 24, bottom: 12, left: 0 }}>
+              <ResponsiveContainer width="100%" height={timelineHeight}>
+                <BarChart data={timeline.items} layout="vertical" margin={{ top: 20, right: 24, bottom: 12, left: 0 }} barCategoryGap="38%">
                   <XAxis
                     type="number"
                     orientation="top"
@@ -225,7 +226,7 @@ export default function Dashboard() {
                     label={{ value: "Auj.", position: "insideTopRight", fill: "#FBBF24", fontSize: 10 }}
                   />
                   <Bar dataKey="startOffset" fill="transparent" stackId="timeline" />
-                  <Bar dataKey="duration" stackId="timeline" radius={[0, 6, 6, 0]}>
+                  <Bar dataKey="duration" stackId="timeline" radius={[999, 999, 999, 999]} barSize={4}>
                     {timeline.items.map((entry, index) => (
                       <Cell key={`timeline-${index}`} fill={barColor(entry)} />
                     ))}
