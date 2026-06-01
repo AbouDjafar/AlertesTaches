@@ -95,7 +95,7 @@ export default function Dashboard() {
     blue: "text-sky-400",
     green: "text-emerald-400",
   };
-  const barColor = (entry: { done: boolean }) => entry.done ? "#4ade80" : "#6366f1";
+  const barColor = (entry: { done: boolean }) => entry.done ? "#4ade80" : "#D84A3A";
 
   return (
     <ScrollArea className="h-full">

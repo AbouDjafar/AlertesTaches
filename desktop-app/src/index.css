@@ -6,35 +6,35 @@
   --app-font-sans: "Inter", sans-serif;
   --radius: 0.5rem;
 
-  --background: 210 25% 8%;
+  --background: 10 28% 8%;
   --foreground: 212 33% 93%;
-  --border: 214 19% 17%;
+  --border: 9 20% 18%;
 
-  --card: 215 21% 11%;
+  --card: 10 24% 11%;
   --card-foreground: 212 33% 93%;
-  --card-border: 214 19% 17%;
+  --card-border: 9 20% 18%;
 
-  --popover: 215 21% 11%;
+  --popover: 10 24% 11%;
   --popover-foreground: 212 33% 93%;
-  --popover-border: 214 19% 17%;
+  --popover-border: 9 20% 18%;
 
-  --primary: 239 84% 67%;
+  --primary: 4 76% 56%;
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 214 19% 17%;
+  --secondary: 10 18% 16%;
   --secondary-foreground: 212 33% 93%;
 
-  --muted: 215 21% 11%;
+  --muted: 10 24% 11%;
   --muted-foreground: 215 14% 59%;
 
-  --accent: 214 19% 17%;
+  --accent: 10 18% 16%;
   --accent-foreground: 212 33% 93%;
 
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
 
-  --input: 214 19% 17%;
-  --ring: 239 84% 67%;
+  --input: 9 20% 18%;
+  --ring: 4 76% 56%;
 }
 
 html {

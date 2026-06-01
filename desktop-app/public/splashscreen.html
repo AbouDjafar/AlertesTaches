@@ -9,7 +9,7 @@
     <title>Alertes Taches</title>
     <style>
       :root {
-        color-scheme: dark;
+        color-scheme: light;
         font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
       }
 
@@ -23,49 +23,41 @@
         height: 100%;
         margin: 0;
         overflow: hidden;
-        background:
-          radial-gradient(circle at top, rgba(56, 189, 248, 0.18), transparent 42%),
-          linear-gradient(160deg, #08101c 0%, #0b1220 46%, #111c2f 100%);
-        color: #f8fafc;
+        background: #ffffff;
+        color: #7a1f17;
       }
 
       body {
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 24px;
       }
 
       .shell {
         width: 100%;
-        max-width: 420px;
-        border-radius: 32px;
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        background: rgba(15, 23, 42, 0.82);
-        box-shadow: 0 26px 80px rgba(8, 15, 28, 0.45);
-        backdrop-filter: blur(14px);
-        padding: 34px 28px;
+        height: 100%;
+        background: #ffffff;
+        padding: 26px 26px 22px;
         text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
       }
 
       .logo {
-        width: 84px;
-        height: 84px;
+        width: 112px;
+        height: 112px;
         margin: 0 auto;
-        border-radius: 28px;
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        background: rgba(255, 255, 255, 0.06);
         display: flex;
         align-items: center;
         justify-content: center;
       }
 
-      .logo-core {
-        width: 42px;
-        height: 42px;
-        border-radius: 18px;
-        background: linear-gradient(135deg, #38bdf8 0%, #2563eb 55%, #4f46e5 100%);
-        box-shadow: 0 12px 30px rgba(37, 99, 235, 0.35);
+      .logo img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
       }
 
       .eyebrow {
@@ -74,41 +66,42 @@
         font-weight: 700;
         letter-spacing: 0.28em;
         text-transform: uppercase;
-        color: rgba(186, 230, 253, 0.82);
+        color: #d84a3a;
       }
 
       h1 {
-        margin: 14px 0 0;
-        font-size: 31px;
+        margin: 12px 0 0;
+        font-size: 30px;
         line-height: 1.1;
+        color: #8a261d;
       }
 
       p {
-        margin: 14px 0 0;
-        color: #cbd5e1;
+        margin: 12px 0 0;
+        color: #8f433b;
         font-size: 14px;
         line-height: 1.65;
       }
 
       .status {
-        margin: 26px auto 0;
+        margin: 24px auto 0;
         display: inline-flex;
         align-items: center;
         gap: 12px;
         border-radius: 999px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(198, 61, 47, 0.15);
+        background: #fff5f3;
         padding: 11px 16px;
         font-size: 14px;
-        color: #e2e8f0;
+        color: #a13328;
       }
 
       .spinner {
         width: 16px;
         height: 16px;
         border-radius: 999px;
-        border: 2px solid rgba(125, 211, 252, 0.25);
-        border-top-color: #7dd3fc;
+        border: 2px solid rgba(198, 61, 47, 0.18);
+        border-top-color: #c63d2f;
         animation: spin 0.9s linear infinite;
       }
 
@@ -122,7 +115,7 @@
   <body>
     <main class="shell" aria-live="polite">
       <div class="logo" aria-hidden="true">
-        <div class="logo-core"></div>
+        <img src="./app-logo.png" alt="Logo Alertes Taches" />
       </div>
       <p class="eyebrow">Desktop App</p>
       <h1>Alertes Taches</h1>

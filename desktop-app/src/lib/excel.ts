@@ -23,54 +23,54 @@ const PLAN_COLUMNS = [
 ] as const;
 
 const PLAN_WIDTHS = [6, 35, 50, 40, 25, 20, 45, 40, 15, 14, 14, 12, 12, 18, 25, 20, 40, 10];
-const HEADER_FILL = "1F4E79";
+const HEADER_FILL = "C63D2F";
 const HEADER_TEXT = "FFFFFF";
 const STATUS_VALUES = ["Non démarré", "Non démarrée", "En cours", "Terminée", "Terminé"];
 
-const HEADER_ALIASES: Record<string, string> = {
-  "N°": "N°",
-  "NÂ°": "N°",
-  N: "N°",
-  "Activité": "Activité",
-  "ActivitÃ©": "Activité",
-  Activite: "Activité",
-  "Tâche": "Tâche",
-  "TÃ¢che": "Tâche",
-  Tache: "Tâche",
-  Description: "Description",
-  Source: "Source",
-  Nature: "Nature",
-  "Extrant attendu": "Extrant attendu",
-  "IOV (Indicateur Objectivement Vérifiable)": "IOV (Indicateur Objectivement Vérifiable)",
-  "IOV (Indicateur Objectivement VÃ©rifiable)": "IOV (Indicateur Objectivement Vérifiable)",
-  "IOV (Indicateur Objectivement Verifiable)": "IOV (Indicateur Objectivement Vérifiable)",
-  Responsable: "Responsable",
-  "Date de début": "Date de début",
-  "Date de dÃ©but": "Date de début",
-  "Date de debut": "Date de début",
-  "Date de fin": "Date de fin",
-  "Durée (jours)": "Durée (jours)",
-  "DurÃ©e (jours)": "Durée (jours)",
-  "Duree (jours)": "Durée (jours)",
-  "Priorité": "Priorité",
-  "PrioritÃ©": "Priorité",
-  Priorite: "Priorité",
-  "État d'avancement": "État d'avancement",
-  "Ã‰tat d'avancement": "État d'avancement",
-  "Etat d'avancement": "État d'avancement",
-  "Extrants obtenus à date": "Extrants obtenus à date",
-  "Extrants obtenus Ã  date": "Extrants obtenus à date",
-  "Extrants obtenus a date": "Extrants obtenus à date",
-  "Livrables fournis": "Livrables fournis",
-  Observations: "Observations",
-  Etat: "Etat",
+type ImportField = Exclude<keyof Task, "id">;
+
+const HEADER_KEYS: Record<string, ImportField> = {
+  n: "numero",
+  numero: "numero",
+  activite: "activite",
+  tache: "tache",
+  description: "description",
+  source: "source",
+  nature: "nature",
+  "extrant attendu": "extrantAttendu",
+  "iov indicateur objectivement verifiable": "iov",
+  responsable: "responsable",
+  "date de debut": "dateDebut",
+  "date de fin": "dateFin",
+  "duree jours": "duree",
+  priorite: "priorite",
+  "etat d avancement": "etatAvancement",
+  "etat davancement": "etatAvancement",
+  "extrants obtenus a date": "extrantsObtenus",
+  "livrables fournis": "livrablesFournis",
+  observations: "observations",
+  etat: "etat",
 };
 
-function normalizeHeader(value: string | null | undefined, index: number) {
+function slugHeader(value: string | null | undefined) {
   if (!value) {
-    return `col_${index}`;
+    return "";
   }
-  return HEADER_ALIASES[value.trim()] ?? value.trim();
+
+  return value
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[’'`´]/g, " ")
+    .replace(/[^a-zA-Z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+}
+
+function normalizeHeader(value: string | null | undefined, index: number) {
+  const canonical = HEADER_KEYS[slugHeader(value)];
+  return canonical ?? (`col_${index}` as const);
 }
 
 function excelSerialToIso(value: number) {
@@ -112,18 +112,22 @@ function parseExcelDate(raw: string | number | null) {
   if (typeof raw === "number") {
     return excelSerialToIso(raw);
   }
+
   const trimmed = raw.trim();
   if (!trimmed) {
     return "";
   }
+
   const isoMatch = /^\d{4}-\d{2}-\d{2}/.exec(trimmed);
   if (isoMatch) {
     return isoMatch[0];
   }
+
   const frMatch = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(trimmed);
   if (frMatch) {
     return `${frMatch[3]}-${frMatch[2]}-${frMatch[1]}`;
   }
+
   return trimmed;
 }
 
@@ -134,8 +138,18 @@ function asNumber(raw: string | number | null) {
   if (typeof raw === "number") {
     return Number.isFinite(raw) ? raw : 0;
   }
-  const parsed = Number(raw);
+
+  const normalized = raw.replace(/\s+/g, "").replace(",", ".");
+  const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function asText(raw: string | number | null, fallback = "") {
+  if (raw == null) {
+    return fallback;
+  }
+  const value = String(raw).trim();
+  return value || fallback;
 }
 
 export async function importTasksFromExcel(file: File) {
@@ -158,36 +172,39 @@ export async function importTasksFromExcel(file: File) {
   const tasks: Task[] = [];
   for (let rowIndex = 2; rowIndex <= worksheet.rowCount; rowIndex += 1) {
     const row = worksheet.getRow(rowIndex);
-    const values = headers.map((_: string, headerIndex: number) => readCellValue(row.getCell(headerIndex + 1).value));
+    const values = headers.map((_, headerIndex: number) => readCellValue(row.getCell(headerIndex + 1).value));
     const meaningfulCount = values.filter((value: string | number | null) => value != null && `${value}`.trim() !== "").length;
     if (meaningfulCount <= 1) {
       continue;
     }
 
-    const record = Object.fromEntries(headers.map((header: string, index: number) => [header, values[index]]));
-    const dateDebut = parseExcelDate(record["Date de début"] as string | number | null);
-    const dateFin = parseExcelDate(record["Date de fin"] as string | number | null);
+    const record = Object.fromEntries(headers.map((header, index) => [header, values[index]])) as Partial<
+      Record<ImportField | string, string | number | null>
+    >;
+
+    const dateDebut = parseExcelDate(record.dateDebut as string | number | null);
+    const dateFin = parseExcelDate(record.dateFin as string | number | null);
 
     tasks.push({
       id: crypto.randomUUID(),
-      numero: asNumber(record["N°"] as string | number | null),
-      activite: String(record["Activité"] ?? ""),
-      tache: String(record["Tâche"] ?? ""),
-      description: String(record["Description"] ?? ""),
-      source: String(record["Source"] ?? ""),
-      nature: String(record["Nature"] ?? ""),
-      extrantAttendu: String(record["Extrant attendu"] ?? ""),
-      iov: String(record["IOV (Indicateur Objectivement Vérifiable)"] ?? ""),
-      responsable: String(record["Responsable"] ?? ""),
+      numero: asNumber(record.numero as string | number | null),
+      activite: asText(record.activite as string | number | null),
+      tache: asText(record.tache as string | number | null),
+      description: asText(record.description as string | number | null),
+      source: asText(record.source as string | number | null),
+      nature: asText(record.nature as string | number | null),
+      extrantAttendu: asText(record.extrantAttendu as string | number | null),
+      iov: asText(record.iov as string | number | null),
+      responsable: asText(record.responsable as string | number | null),
       dateDebut,
       dateFin,
-      duree: asNumber(record["Durée (jours)"] as string | number | null),
-      priorite: String(record["Priorité"] ?? "Moyen"),
-      etatAvancement: String(record["État d'avancement"] ?? "Non démarré"),
-      extrantsObtenus: String(record["Extrants obtenus à date"] ?? ""),
-      livrablesFournis: String(record["Livrables fournis"] ?? ""),
-      observations: String(record["Observations"] ?? ""),
-      etat: record["Etat"] == null ? null : String(record["Etat"]),
+      duree: asNumber(record.duree as string | number | null),
+      priorite: asText(record.priorite as string | number | null, "Moyen"),
+      etatAvancement: asText(record.etatAvancement as string | number | null, "Non démarré"),
+      extrantsObtenus: asText(record.extrantsObtenus as string | number | null),
+      livrablesFournis: asText(record.livrablesFournis as string | number | null),
+      observations: asText(record.observations as string | number | null),
+      etat: record.etat == null ? null : asText(record.etat as string | number | null),
     });
   }
 
@@ -281,12 +298,7 @@ function buildWorkbook(tasks: Task[]) {
   tasks
     .filter((task) => task.dateDebut || task.dateFin)
     .forEach((task) => {
-      const row = ganttSheet.addRow([
-        task.tache,
-        parseIsoDate(task.dateDebut),
-        task.duree || null,
-        task.etatAvancement,
-      ]);
+      const row = ganttSheet.addRow([task.tache, parseIsoDate(task.dateDebut), task.duree || null, task.etatAvancement]);
       row.eachCell((cell) => {
         cell.font = { name: "Arial", size: 9 };
         cell.alignment = { vertical: "middle" };

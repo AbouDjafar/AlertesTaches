@@ -23,8 +23,8 @@ const NOTE_MIN_HEIGHT: f64 = 220.0;
 const NOTE_MARGIN: f64 = 28.0;
 const NOTE_OFFSET_Y: f64 = 34.0;
 const NOTE_OFFSET_X: f64 = 46.0;
-const SPLASH_WIDTH: f64 = 540.0;
-const SPLASH_HEIGHT: f64 = 360.0;
+const SPLASH_WIDTH: f64 = 420.0;
+const SPLASH_HEIGHT: f64 = 320.0;
 
 static LOG_FILE_PATH: Mutex<Option<PathBuf>> = Mutex::new(None);
 static SETTINGS_CACHE: Mutex<AppSettings> = Mutex::new(AppSettings {
